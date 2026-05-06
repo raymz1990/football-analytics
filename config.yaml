@@ -28,59 +28,196 @@ apis:
     key_env: "OPENWEATHER_KEY"
 
 # ─── Leagues Scope ───────────────────────────────────────────────────────────
+# Mercados disponíveis por tier de liga:
+#   minor_focus: true  → apenas 1X2, Over/Under FT e Over/Under HT
+#   minor_focus: false → todos os mercados
 leagues:
   tier_1:
-    - {name: "Premier League", country: "England", id: 39, football_data_id: "PL"}
-    - {name: "La Liga", country: "Spain", id: 140, football_data_id: "PD"}
-    - {name: "Serie A", country: "Italy", id: 135, football_data_id: "SA"}
-    - {name: "Bundesliga", country: "Germany", id: 78, football_data_id: "BL1"}
-    - {name: "Ligue 1", country: "France", id: 61, football_data_id: "FL1"}
-    - {name: "Brasileirão Série A", country: "Brazil", id: 71}
-    - {name: "Champions League", country: "Europe", id: 2, football_data_id: "CL"}
-    - {name: "Europa League", country: "Europe", id: 3, football_data_id: "EL"}
+    - {name: "Premier League",        country: "England",   id: 39,  odds_key: "soccer_epl",              minor_focus: false}
+    - {name: "La Liga",               country: "Spain",     id: 140, odds_key: "soccer_spain_la_liga",     minor_focus: false}
+    - {name: "Serie A",               country: "Italy",     id: 135, odds_key: "soccer_italy_serie_a",     minor_focus: false}
+    - {name: "Bundesliga",            country: "Germany",   id: 78,  odds_key: "soccer_germany_bundesliga",minor_focus: false}
+    - {name: "Ligue 1",               country: "France",    id: 61,  odds_key: "soccer_france_ligue_one",  minor_focus: false}
+    - {name: "Brasileirão Série A",   country: "Brazil",    id: 71,  odds_key: "soccer_brazil_campeonato", minor_focus: false}
+    - {name: "Champions League",      country: "Europe",    id: 2,   odds_key: "soccer_uefa_champs_league",minor_focus: false}
+    - {name: "Europa League",         country: "Europe",    id: 3,   odds_key: "soccer_uefa_europa_league",minor_focus: false}
 
   tier_2:
-    - {name: "Championship", country: "England", id: 40}
-    - {name: "Segunda División", country: "Spain", id: 141}
-    - {name: "Serie B", country: "Italy", id: 136}
-    - {name: "2. Bundesliga", country: "Germany", id: 79}
-    - {name: "Ligue 2", country: "France", id: 62}
-    - {name: "Brasileirão Série B", country: "Brazil", id: 72}
-    - {name: "Eredivisie", country: "Netherlands", id: 88}
-    - {name: "Primeira Liga", country: "Portugal", id: 94}
-    - {name: "Russian Premier League", country: "Russia", id: 235}
-    - {name: "MLS", country: "USA", id: 253}
-    - {name: "Liga MX", country: "Mexico", id: 262}
-    - {name: "Argentine Primera", country: "Argentina", id: 128}
+    - {name: "Championship",          country: "England",   id: 40,  odds_key: "soccer_efl_champ",         minor_focus: false}
+    - {name: "Segunda División",      country: "Spain",     id: 141, odds_key: "soccer_spain_segunda_division", minor_focus: false}
+    - {name: "Serie B",               country: "Italy",     id: 136, odds_key: "soccer_italy_serie_b",     minor_focus: false}
+    - {name: "2. Bundesliga",         country: "Germany",   id: 79,  odds_key: "soccer_germany_bundesliga2",minor_focus: false}
+    - {name: "Ligue 2",               country: "France",    id: 62,  odds_key: "soccer_france_ligue_two",  minor_focus: false}
+    - {name: "Brasileirão Série B",   country: "Brazil",    id: 72,  odds_key: "soccer_brazil_serie_b",    minor_focus: false}
+    - {name: "Eredivisie",            country: "Netherlands",id: 88, odds_key: "soccer_netherlands_eredivisie", minor_focus: false}
+    - {name: "Primeira Liga",         country: "Portugal",  id: 94,  odds_key: "soccer_portugal_primeira_liga", minor_focus: false}
+    - {name: "Russian Premier League",country: "Russia",    id: 235, odds_key: "soccer_russia_premier_league", minor_focus: false}
+    - {name: "MLS",                   country: "USA",       id: 253, odds_key: "soccer_usa_mls",           minor_focus: false}
+    - {name: "Liga MX",               country: "Mexico",    id: 262, odds_key: "soccer_mexico_ligamx",     minor_focus: false}
+    - {name: "Argentine Primera",     country: "Argentina", id: 128, odds_key: "soccer_argentina_primera_division", minor_focus: false}
+    - {name: "Süper Lig",             country: "Turkey",    id: 203, odds_key: "soccer_turkey_super_league",minor_focus: false}
+    - {name: "Scottish Premiership",  country: "Scotland",  id: 179, odds_key: "soccer_scotland_premiership", minor_focus: false}
 
   tier_3:
-    - {name: "League One", country: "England", id: 41}
-    - {name: "League Two", country: "England", id: 42}
-    - {name: "National League", country: "England", id: 43}
-    - {name: "3. Liga", country: "Germany", id: 80}
-    - {name: "Serie C", country: "Italy", id: 137}
-    - {name: "Scottish Premiership", country: "Scotland", id: 179}
-    - {name: "Belgian First Division", country: "Belgium", id: 144}
-    - {name: "Turkish Süper Lig", country: "Turkey", id: 203}
-    - {name: "Greek Super League", country: "Greece", id: 197}
-    - {name: "J1 League", country: "Japan", id: 98}
-    - {name: "K League", country: "South Korea", id: 292}
-    - {name: "A-League", country: "Australia", id: 188}
+    - {name: "League One",            country: "England",   id: 41,  odds_key: "soccer_efl_league_one",    minor_focus: false}
+    - {name: "League Two",            country: "England",   id: 42,  odds_key: "soccer_efl_league_two",    minor_focus: false}
+    - {name: "National League",       country: "England",   id: 43,  odds_key: "soccer_england_national_league", minor_focus: true}
+    - {name: "3. Liga",               country: "Germany",   id: 80,  odds_key: "soccer_germany_3liga",     minor_focus: true}
+    - {name: "Serie C",               country: "Italy",     id: 137, odds_key: "soccer_italy_serie_c",     minor_focus: true}
+    - {name: "Belgian First Division",country: "Belgium",   id: 144, odds_key: "soccer_belgium_first_div", minor_focus: false}
+    - {name: "Greek Super League",    country: "Greece",    id: 197, odds_key: "soccer_greece_super_league",minor_focus: false}
+    - {name: "J1 League",             country: "Japan",     id: 98,  odds_key: "soccer_japan_j_league",    minor_focus: false}
+    - {name: "K League 1",            country: "South Korea",id: 292,odds_key: "soccer_korea_kleague1",    minor_focus: false}
+    - {name: "A-League",              country: "Australia", id: 188, odds_key: "soccer_australia_aleague", minor_focus: false}
+    - {name: "Eliteserien",           country: "Norway",    id: 103, odds_key: "soccer_norway_eliteserien",minor_focus: false}
+    - {name: "Allsvenskan",           country: "Sweden",    id: 113, odds_key: "soccer_sweden_allsvenskan",minor_focus: false}
+    - {name: "Veikkausliiga",         country: "Finland",   id: 244, odds_key: "soccer_finland_veikkausliiga", minor_focus: false}
+    - {name: "Superliga",             country: "Denmark",   id: 119, odds_key: "soccer_denmark_superliga", minor_focus: false}
+    - {name: "Ekstraklasa",           country: "Poland",    id: 106, odds_key: "soccer_poland_ekstraklasa",minor_focus: false}
+    - {name: "Super Liga",            country: "Serbia",    id: 286, odds_key: "soccer_serbia_superliga",  minor_focus: true}
+    - {name: "Liga I",                country: "Romania",   id: 283, odds_key: "soccer_romania_liga_1",    minor_focus: true}
+    - {name: "Czech First League",    country: "Czech Rep.",id: 345, odds_key: "soccer_czech_republic_1_liga", minor_focus: true}
+    - {name: "Slovak Fortuna Liga",   country: "Slovakia",  id: 332, odds_key: "soccer_slovakia_super_liga",minor_focus: true}
+    - {name: "Croatian HNL",          country: "Croatia",   id: 210, odds_key: "soccer_croatia_hnl",       minor_focus: true}
+    - {name: "Swiss Super League",    country: "Switzerland",id: 207,odds_key: "soccer_switzerland_superleague", minor_focus: false}
+
+  # ── LIGAS MENORES PRIORITÁRIAS (foco: 1X2 + Over FT + Over HT) ──────────────
+  minor_europe:
+    - {name: "Úrvalsdeild",           country: "Iceland",   id: 164, odds_key: "soccer_iceland_premier_league",  minor_focus: true,  timezone: "Atlantic/Reykjavik"}
+    - {name: "1. deild",              country: "Iceland",   id: 165, odds_key: "soccer_iceland_1_deild",          minor_focus: true,  timezone: "Atlantic/Reykjavik"}
+    - {name: "2. deild",              country: "Iceland",   id: 706, odds_key: "soccer_iceland_2_deild",          minor_focus: true,  timezone: "Atlantic/Reykjavik"}
+    - {name: "Premier League (Faroe Isl.)", country: "Faroe Islands", id: 71, odds_key: "soccer_faroe_islands_premier", minor_focus: true, timezone: "Atlantic/Faroe"}
+    - {name: "Meistaradeildin",       country: "Faroe Islands", id: 71, odds_key: "soccer_faroe_islands",         minor_focus: true,  timezone: "Atlantic/Faroe"}
+    - {name: "Íslandsmót",            country: "Iceland",   id: 706, odds_key: "soccer_iceland_cup",              minor_focus: true,  timezone: "Atlantic/Reykjavik"}
+    - {name: "Norsk 1. divisjon",     country: "Norway",    id: 104, odds_key: "soccer_norway_1_divisjon",        minor_focus: true,  timezone: "Europe/Oslo"}
+    - {name: "Norsk 2. divisjon",     country: "Norway",    id: 787, odds_key: "soccer_norway_2_divisjon",        minor_focus: true,  timezone: "Europe/Oslo"}
+    - {name: "Swedish Superettan",    country: "Sweden",    id: 114, odds_key: "soccer_sweden_superettan",        minor_focus: true,  timezone: "Europe/Stockholm"}
+    - {name: "Finnish Ykkönen",       country: "Finland",   id: 245, odds_key: "soccer_finland_ykkonen",          minor_focus: true,  timezone: "Europe/Helsinki"}
+    - {name: "Danish 1st Division",   country: "Denmark",   id: 120, odds_key: "soccer_denmark_1st_division",     minor_focus: true,  timezone: "Europe/Copenhagen"}
+    - {name: "Icelandic Cup",         country: "Iceland",   id: 706, odds_key: "soccer_iceland",                  minor_focus: true,  timezone: "Atlantic/Reykjavik"}
+    - {name: "Welsh Premier League",  country: "Wales",     id: 113, odds_key: "soccer_wales_premier",            minor_focus: true,  timezone: "Europe/London"}
+    - {name: "Northern Ireland Prem.",country: "N. Ireland",id: 163, odds_key: "soccer_northern_ireland",         minor_focus: true,  timezone: "Europe/London"}
+    - {name: "Irish Premier Division",country: "Ireland",   id: 357, odds_key: "soccer_ireland_premier",          minor_focus: true,  timezone: "Europe/Dublin"}
+    - {name: "Latvian Higher League", country: "Latvia",    id: 326, odds_key: "soccer_latvia_virsliga",          minor_focus: true,  timezone: "Europe/Riga"}
+    - {name: "Estonian Meistriliiga", country: "Estonia",   id: 321, odds_key: "soccer_estonia_meistriliiga",     minor_focus: true,  timezone: "Europe/Tallinn"}
+    - {name: "Lithuanian A Lyga",     country: "Lithuania", id: 322, odds_key: "soccer_lithuania_a_lyga",         minor_focus: true,  timezone: "Europe/Vilnius"}
+    - {name: "Belarusian Prem. League",country: "Belarus",  id: 370, odds_key: "soccer_belarus_premier",         minor_focus: true,  timezone: "Europe/Minsk"}
+    - {name: "Maltese Premier League",country: "Malta",     id: 383, odds_key: "soccer_malta_premier",            minor_focus: true,  timezone: "Europe/Malta"}
+    - {name: "Andorran Primera Divisió", country: "Andorra", id: 339,odds_key: "soccer_andorra_primera",         minor_focus: true,  timezone: "Europe/Andorra"}
+    - {name: "San Marino Campionato", country: "San Marino",id: 892, odds_key: "soccer_san_marino",              minor_focus: true,  timezone: "Europe/San_Marino"}
+    - {name: "Gibraltar National League", country: "Gibraltar", id: 667, odds_key: "soccer_gibraltar",           minor_focus: true,  timezone: "Europe/Gibraltar"}
+    - {name: "Kosovo Superleague",    country: "Kosovo",    id: 373, odds_key: "soccer_kosovo_superleague",       minor_focus: true,  timezone: "Europe/Belgrade"}
+    - {name: "North Macedonia 1st",   country: "N. Macedonia",id: 384,odds_key: "soccer_north_macedonia",        minor_focus: true,  timezone: "Europe/Skopje"}
+    - {name: "Moldovan Divizia Națională", country: "Moldova", id: 385, odds_key: "soccer_moldova_national",     minor_focus: true,  timezone: "Europe/Chisinau"}
+    - {name: "Armenian Premier League", country: "Armenia", id: 338, odds_key: "soccer_armenia_premier",         minor_focus: true,  timezone: "Asia/Yerevan"}
+    - {name: "Georgian Erovnuli Liga",country: "Georgia",   id: 367, odds_key: "soccer_georgia_erovnuli",        minor_focus: true,  timezone: "Asia/Tbilisi"}
+    - {name: "Azerbaijani Premier League", country: "Azerbaijan", id: 340, odds_key: "soccer_azerbaijan_premier", minor_focus: true, timezone: "Asia/Baku"}
+    - {name: "Kazakh Premier League", country: "Kazakhstan",id: 374, odds_key: "soccer_kazakhstan_premier",      minor_focus: true,  timezone: "Asia/Almaty"}
+    - {name: "Hungarian OTP Bank Liga", country: "Hungary", id: 271, odds_key: "soccer_hungary_nb1",             minor_focus: true,  timezone: "Europe/Budapest"}
+    - {name: "Bulgarian First League", country: "Bulgaria", id: 172, odds_key: "soccer_bulgaria_first_league",   minor_focus: true,  timezone: "Europe/Sofia"}
+    - {name: "Slovenian PrvaLiga",    country: "Slovenia",  id: 218, odds_key: "soccer_slovenia_prvaliga",        minor_focus: true,  timezone: "Europe/Ljubljana"}
+    - {name: "Bosnian Premier League",country: "Bosnia",    id: 209, odds_key: "soccer_bosnia_premier",          minor_focus: true,  timezone: "Europe/Sarajevo"}
+    - {name: "Albanian Superliga",    country: "Albania",   id: 188, odds_key: "soccer_albania_superliga",        minor_focus: true,  timezone: "Europe/Tirane"}
+    - {name: "Montenegrin First League", country: "Montenegro", id: 390, odds_key: "soccer_montenegro",          minor_focus: true,  timezone: "Europe/Podgorica"}
+    - {name: "Cypriot First Division",country: "Cyprus",    id: 262, odds_key: "soccer_cyprus_first_division",   minor_focus: true,  timezone: "Asia/Nicosia"}
+    - {name: "Luxembourg National Division", country: "Luxembourg", id: 807, odds_key: "soccer_luxembourg",      minor_focus: true,  timezone: "Europe/Luxembourg"}
+    - {name: "Liechtenstein FL",      country: "Liechtenstein", id: 806, odds_key: "soccer_liechtenstein",       minor_focus: true,  timezone: "Europe/Vaduz"}
+
+  minor_oceania:
+    - {name: "A-League Women",        country: "Australia", id: 196, odds_key: "soccer_australia_women_aleague",  minor_focus: true, timezone: "Australia/Sydney"}
+    - {name: "NPL Queensland",        country: "Australia", id: 188, odds_key: "soccer_australia_npl_qld",         minor_focus: true, timezone: "Australia/Brisbane"}
+    - {name: "NPL Victoria",          country: "Australia", id: 188, odds_key: "soccer_australia_npl_vic",         minor_focus: true, timezone: "Australia/Melbourne"}
+    - {name: "NPL New South Wales",   country: "Australia", id: 188, odds_key: "soccer_australia_npl_nsw",         minor_focus: true, timezone: "Australia/Sydney"}
+    - {name: "NPL Western Australia", country: "Australia", id: 188, odds_key: "soccer_australia_npl_wa",          minor_focus: true, timezone: "Australia/Perth"}
+    - {name: "NPL South Australia",   country: "Australia", id: 188, odds_key: "soccer_australia_npl_sa",          minor_focus: true, timezone: "Australia/Adelaide"}
+    - {name: "New Zealand National League", country: "New Zealand", id: 188, odds_key: "soccer_new_zealand_npl",  minor_focus: true, timezone: "Pacific/Auckland"}
+    - {name: "NZ Premiership",        country: "New Zealand", id: 188, odds_key: "soccer_new_zealand_premiership", minor_focus: true, timezone: "Pacific/Auckland"}
+    - {name: "OFC Champions League",  country: "Oceania",   id: 188, odds_key: "soccer_ofc_champions",             minor_focus: true, timezone: "Pacific/Auckland"}
+    - {name: "Fiji Premier League",   country: "Fiji",      id: 700, odds_key: "soccer_fiji_premier",              minor_focus: true, timezone: "Pacific/Fiji"}
+    - {name: "Vanuatu Premier League",country: "Vanuatu",   id: 701, odds_key: "soccer_vanuatu_premier",           minor_focus: true, timezone: "Pacific/Efate"}
+
+  minor_americas:
+    - {name: "Argentine Primera B",   country: "Argentina", id: 129, odds_key: "soccer_argentina_primera_b",       minor_focus: true, timezone: "America/Argentina/Buenos_Aires"}
+    - {name: "Argentine Primera C",   country: "Argentina", id: 130, odds_key: "soccer_argentina_primera_c",       minor_focus: true, timezone: "America/Argentina/Buenos_Aires"}
+    - {name: "Argentine Primera D",   country: "Argentina", id: 131, odds_key: "soccer_argentina_primera_d",       minor_focus: true, timezone: "America/Argentina/Buenos_Aires"}
+    - {name: "Brasileirão Série C",   country: "Brazil",    id: 73,  odds_key: "soccer_brazil_serie_c",            minor_focus: true, timezone: "America/Sao_Paulo"}
+    - {name: "Brasileirão Série D",   country: "Brazil",    id: 74,  odds_key: "soccer_brazil_serie_d",            minor_focus: true, timezone: "America/Sao_Paulo"}
+    - {name: "Copa Sudamericana",     country: "S. America",id: 11,  odds_key: "soccer_conmebol_sudamericana",     minor_focus: true, timezone: "America/Sao_Paulo"}
+    - {name: "Libertadores",          country: "S. America",id: 13,  odds_key: "soccer_conmebol_libertadores",     minor_focus: false, timezone: "America/Sao_Paulo"}
+    - {name: "Chilean Primera",       country: "Chile",     id: 265, odds_key: "soccer_chile_primera_division",    minor_focus: false, timezone: "America/Santiago"}
+    - {name: "Colombian Liga BetPlay",country: "Colombia",  id: 239, odds_key: "soccer_colombia_primera_a",        minor_focus: false, timezone: "America/Bogota"}
+    - {name: "Uruguayan Primera",     country: "Uruguay",   id: 268, odds_key: "soccer_uruguay_primera_division",  minor_focus: true, timezone: "America/Montevideo"}
+    - {name: "Paraguayan División Prof.", country: "Paraguay", id: 281, odds_key: "soccer_paraguay_primera_division", minor_focus: true, timezone: "America/Asuncion"}
+    - {name: "Bolivian Liga Prof.",   country: "Bolivia",   id: 441, odds_key: "soccer_bolivia_primera_division",  minor_focus: true, timezone: "America/La_Paz"}
+    - {name: "Ecuadorian Serie A",    country: "Ecuador",   id: 240, odds_key: "soccer_ecuador_liga_pro",          minor_focus: true, timezone: "America/Guayaquil"}
+    - {name: "Venezuelan Primera",    country: "Venezuela", id: 310, odds_key: "soccer_venezuela_primera",         minor_focus: true, timezone: "America/Caracas"}
+    - {name: "Peruvian Liga 1",       country: "Peru",      id: 282, odds_key: "soccer_peru_primera_division",     minor_focus: true, timezone: "America/Lima"}
+    - {name: "Costa Rican Primera",   country: "Costa Rica",id: 233, odds_key: "soccer_costa_rica_primera",        minor_focus: true, timezone: "America/Costa_Rica"}
+    - {name: "Guatemalan Liga Nacional", country: "Guatemala", id: 250, odds_key: "soccer_guatemala_liga_nacional", minor_focus: true, timezone: "America/Guatemala"}
+    - {name: "CONCACAF League",       country: "CONCACAF", id: 188, odds_key: "soccer_concacaf_league",            minor_focus: true, timezone: "America/Mexico_City"}
+    - {name: "USL Championship",      country: "USA",       id: 253, odds_key: "soccer_usa_usl_championship",      minor_focus: true, timezone: "America/New_York"}
+    - {name: "USL League One",        country: "USA",       id: 253, odds_key: "soccer_usa_usl_league_one",        minor_focus: true, timezone: "America/New_York"}
+    - {name: "Canadian Premier League", country: "Canada",  id: 253, odds_key: "soccer_canada_premier_league",     minor_focus: true, timezone: "America/Toronto"}
+
+  minor_asia:
+    - {name: "J2 League",             country: "Japan",     id: 99,  odds_key: "soccer_japan_j2_league",           minor_focus: true, timezone: "Asia/Tokyo"}
+    - {name: "J3 League",             country: "Japan",     id: 100, odds_key: "soccer_japan_j3_league",           minor_focus: true, timezone: "Asia/Tokyo"}
+    - {name: "K League 2",            country: "South Korea",id: 293,odds_key: "soccer_korea_kleague2",            minor_focus: true, timezone: "Asia/Seoul"}
+    - {name: "Chinese Super League",  country: "China",     id: 169, odds_key: "soccer_china_super_league",        minor_focus: false, timezone: "Asia/Shanghai"}
+    - {name: "Chinese League One",    country: "China",     id: 170, odds_key: "soccer_china_league_one",          minor_focus: true, timezone: "Asia/Shanghai"}
+    - {name: "Indian Super League",   country: "India",     id: 323, odds_key: "soccer_india_super_league",        minor_focus: false, timezone: "Asia/Kolkata"}
+    - {name: "Thai League 1",         country: "Thailand",  id: 296, odds_key: "soccer_thailand_thai_league",      minor_focus: true, timezone: "Asia/Bangkok"}
+    - {name: "Thai League 2",         country: "Thailand",  id: 297, odds_key: "soccer_thailand_thai_league_2",    minor_focus: true, timezone: "Asia/Bangkok"}
+    - {name: "Malaysian Super League",country: "Malaysia",  id: 290, odds_key: "soccer_malaysia_super_league",     minor_focus: true, timezone: "Asia/Kuala_Lumpur"}
+    - {name: "Singapore Premier League", country: "Singapore", id: 667, odds_key: "soccer_singapore_premier",     minor_focus: true, timezone: "Asia/Singapore"}
+    - {name: "Indonesian Liga 1",     country: "Indonesia", id: 252, odds_key: "soccer_indonesia_liga_1",          minor_focus: true, timezone: "Asia/Jakarta"}
+    - {name: "Vietnamese V.League 1", country: "Vietnam",   id: 340, odds_key: "soccer_vietnam_v_league",          minor_focus: true, timezone: "Asia/Ho_Chi_Minh"}
+    - {name: "Philippine Football League", country: "Philippines", id: 335, odds_key: "soccer_philippines_fl",    minor_focus: true, timezone: "Asia/Manila"}
+    - {name: "Saudi Pro League",      country: "Saudi Arabia", id: 307, odds_key: "soccer_saudi_arabias_pro_league", minor_focus: false, timezone: "Asia/Riyadh"}
+    - {name: "UAE Arabian Gulf League", country: "UAE",     id: 435, odds_key: "soccer_uae_arabian_gulf_league",   minor_focus: false, timezone: "Asia/Dubai"}
+    - {name: "Qatar Stars League",    country: "Qatar",     id: 435, odds_key: "soccer_qatar_stars_league",        minor_focus: true, timezone: "Asia/Qatar"}
+    - {name: "Iraqi Premier League",  country: "Iraq",      id: 436, odds_key: "soccer_iraq_premier_league",       minor_focus: true, timezone: "Asia/Baghdad"}
+    - {name: "Iranian Pro League",    country: "Iran",      id: 290, odds_key: "soccer_iran_persian_gulf_pro",     minor_focus: true, timezone: "Asia/Tehran"}
+    - {name: "Israeli Premier League",country: "Israel",    id: 384, odds_key: "soccer_israel_premier_league",     minor_focus: false, timezone: "Asia/Jerusalem"}
+    - {name: "Uzbek Super League",    country: "Uzbekistan",id: 462, odds_key: "soccer_uzbekistan_super_league",   minor_focus: true, timezone: "Asia/Tashkent"}
+    - {name: "Tajik League",          country: "Tajikistan",id: 463, odds_key: "soccer_tajikistan_league",         minor_focus: true, timezone: "Asia/Dushanbe"}
+    - {name: "AFC Champions League",  country: "Asia",      id: 17,  odds_key: "soccer_afc_champions_league",      minor_focus: true, timezone: "Asia/Dubai"}
+
+  minor_africa:
+    - {name: "Egyptian Premier League", country: "Egypt",   id: 233, odds_key: "soccer_egypt_premier_league",     minor_focus: true, timezone: "Africa/Cairo"}
+    - {name: "South African PSL",     country: "South Africa", id: 288, odds_key: "soccer_south_africa_premier_division", minor_focus: false, timezone: "Africa/Johannesburg"}
+    - {name: "Moroccan Botola",       country: "Morocco",   id: 286, odds_key: "soccer_morocco_botola",            minor_focus: true, timezone: "Africa/Casablanca"}
+    - {name: "Tunisian Ligue Prof.",  country: "Tunisia",   id: 312, odds_key: "soccer_tunisia_ligue_pro",         minor_focus: true, timezone: "Africa/Tunis"}
+    - {name: "Algerian Ligue Prof.",  country: "Algeria",   id: 186, odds_key: "soccer_algeria_ligue_pro",         minor_focus: true, timezone: "Africa/Algiers"}
+    - {name: "Ghanaian Premier League", country: "Ghana",   id: 372, odds_key: "soccer_ghana_premier_league",      minor_focus: true, timezone: "Africa/Accra"}
+    - {name: "Nigerian NPFL",         country: "Nigeria",   id: 381, odds_key: "soccer_nigeria_npfl",              minor_focus: true, timezone: "Africa/Lagos"}
+    - {name: "Kenyan Premier League", country: "Kenya",     id: 379, odds_key: "soccer_kenya_premier",             minor_focus: true, timezone: "Africa/Nairobi"}
+    - {name: "CAF Champions League",  country: "Africa",    id: 20,  odds_key: "soccer_caf_champions_league",      minor_focus: true, timezone: "Africa/Cairo"}
 
   cups:
-    - {name: "FA Cup", country: "England", id: 45}
-    - {name: "Copa del Rey", country: "Spain", id: 143}
-    - {name: "Coppa Italia", country: "Italy", id: 137}
-    - {name: "DFB-Pokal", country: "Germany", id: 81}
-    - {name: "Coupe de France", country: "France", id: 66}
-    - {name: "Copa do Brasil", country: "Brazil", id: 73}
-    - {name: "Conference League", country: "Europe", id: 848}
+    - {name: "FA Cup",                country: "England",   id: 45,  odds_key: "soccer_fa_cup",                    minor_focus: false}
+    - {name: "Copa del Rey",          country: "Spain",     id: 143, odds_key: "soccer_copa_del_rey",              minor_focus: false}
+    - {name: "Coppa Italia",          country: "Italy",     id: 137, odds_key: "soccer_coppa_italia",              minor_focus: false}
+    - {name: "DFB-Pokal",             country: "Germany",   id: 81,  odds_key: "soccer_dfb_pokal",                 minor_focus: false}
+    - {name: "Coupe de France",       country: "France",    id: 66,  odds_key: "soccer_coupe_de_france",           minor_focus: false}
+    - {name: "Copa do Brasil",        country: "Brazil",    id: 73,  odds_key: "soccer_copa_do_brasil",            minor_focus: false}
+    - {name: "Conference League",     country: "Europe",    id: 848, odds_key: "soccer_uefa_conference_league",    minor_focus: false}
+    - {name: "EFL Cup",               country: "England",   id: 48,  odds_key: "soccer_efl_cup",                   minor_focus: false}
+    - {name: "Scottish Cup",          country: "Scotland",  id: 528, odds_key: "soccer_scotland_cup",              minor_focus: true}
+    - {name: "Icelandic Cup",         country: "Iceland",   id: 706, odds_key: "soccer_iceland_cup",               minor_focus: true}
+    - {name: "Norwegian Cup",         country: "Norway",    id: 108, odds_key: "soccer_norway_cup",                minor_focus: true}
 
   womens:
-    - {name: "Women's Super League", country: "England", id: 188}
-    - {name: "Division 1 Féminine", country: "France", id: 105}
-    - {name: "NWSL", country: "USA", id: 254}
-    - {name: "Frauen Bundesliga", country: "Germany", id: 81}
+    - {name: "Women's Super League",  country: "England",   id: 188, odds_key: "soccer_england_wsl",               minor_focus: false}
+    - {name: "Division 1 Féminine",   country: "France",    id: 105, odds_key: "soccer_france_d1_feminine",        minor_focus: false}
+    - {name: "NWSL",                  country: "USA",       id: 254, odds_key: "soccer_usa_nwsl",                  minor_focus: false}
+    - {name: "Frauen Bundesliga",     country: "Germany",   id: 81,  odds_key: "soccer_germany_frauen_bundesliga", minor_focus: false}
+    - {name: "Primera Iberdrola",     country: "Spain",     id: 393, odds_key: "soccer_spain_primera_iberd",        minor_focus: true}
+    - {name: "Serie A Femminile",     country: "Italy",     id: 394, odds_key: "soccer_italy_serie_a_femminile",   minor_focus: true}
+    - {name: "Damallsvenskan",        country: "Sweden",    id: 393, odds_key: "soccer_sweden_damallsvenskan",     minor_focus: true}
+    - {name: "Toppserien",            country: "Norway",    id: 394, odds_key: "soccer_norway_toppserien",         minor_focus: true}
+    - {name: "UEFA Women's CL",       country: "Europe",    id: 199, odds_key: "soccer_uefa_womens_champs_league", minor_focus: false}
+    - {name: "A-League Women",        country: "Australia", id: 196, odds_key: "soccer_australia_women_aleague",   minor_focus: true}
 
 # ─── Player Props Leagues ─────────────────────────────────────────────────────
 player_props_leagues:

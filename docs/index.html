@@ -258,6 +258,7 @@ footer {
   <button class="nav-btn" onclick="showSection('all-bets')">📋 Todas Apostas</button>
   <button class="nav-btn" onclick="showSection('tracking')">📈 Tracking</button>
   <button class="nav-btn" onclick="showSection('leagues')">🌍 Ligas</button>
+  <button class="nav-btn" onclick="showSection('minor')">🔍 Ligas Menores</button>
 </nav>
 
 <main>
@@ -381,6 +382,121 @@ footer {
   </div>
 </div>
 
+
+<!-- ══════════════════════════════════════════════════ -->
+<!-- SECTION: LIGAS MENORES                           -->
+<!-- ══════════════════════════════════════════════════ -->
+<div id="minor" class="section">
+
+  <!-- KPIs menores -->
+  <div class="kpi-grid" style="margin-bottom:20px">
+    <div class="kpi">
+      <div class="kpi-label">Fixtures Menores</div>
+      <div class="kpi-value blue" id="minor-fixtures-kpi">—</div>
+      <div class="kpi-sub">jogos hoje</div>
+    </div>
+    <div class="kpi">
+      <div class="kpi-label">Value Bets</div>
+      <div class="kpi-value gold" id="minor-bets-kpi">—</div>
+      <div class="kpi-sub">EV > 10% ligas menores</div>
+    </div>
+    <div class="kpi">
+      <div class="kpi-label">Mercados</div>
+      <div class="kpi-value green">3</div>
+      <div class="kpi-sub">1X2 · Over FT · Over HT</div>
+    </div>
+    <div class="kpi">
+      <div class="kpi-label">Cobertura</div>
+      <div class="kpi-value" style="color:var(--purple)" id="minor-leagues-kpi">—</div>
+      <div class="kpi-sub">ligas monitoradas</div>
+    </div>
+  </div>
+
+  <!-- Aviso de qualidade de dados -->
+  <div style="background:rgba(245,200,66,0.06);border:1px solid rgba(245,200,66,0.2);border-radius:8px;padding:12px 16px;margin-bottom:20px;font-family:var(--mono);font-size:11px;color:var(--gold)">
+    ⚠️ <strong>Ligas menores:</strong> modelo usa Bayesian shrinkage com dados históricos limitados.
+    Threshold de EV aumentado para +10% (vs 8% padrão). Valide sempre com múltiplas fontes.
+  </div>
+
+  <!-- Hot bets menores -->
+  <div class="card">
+    <div class="card-title">🔍 Melhores Apostas — Ligas Menores</div>
+    <div class="hot-bets-grid" id="minor-hot-grid"><!-- JS --></div>
+  </div>
+
+  <!-- Filtros -->
+  <div class="card" style="margin-top:16px">
+    <div class="card-title">📋 Todas as Apostas — Ligas Menores</div>
+    <div class="filters">
+      <div class="filter-group">
+        <span class="filter-label">Grupo</span>
+        <select id="minor-filter-group" onchange="renderMinorTable()">
+          <option value="">Todos</option>
+          <option value="minor_europe">🌍 Europa</option>
+          <option value="minor_oceania">🌏 Oceania</option>
+          <option value="minor_americas">🌎 Américas</option>
+          <option value="minor_asia">🌏 Ásia</option>
+          <option value="minor_africa">🌍 África</option>
+        </select>
+      </div>
+      <div class="filter-group">
+        <span class="filter-label">Período</span>
+        <select id="minor-filter-period" onchange="renderMinorTable()">
+          <option value="">FT e HT</option>
+          <option value="FT">Full Time</option>
+          <option value="HT">Half Time</option>
+        </select>
+      </div>
+      <div class="filter-group">
+        <span class="filter-label">Mercado</span>
+        <select id="minor-filter-market" onchange="renderMinorTable()">
+          <option value="">Todos</option>
+          <option value="1X2">1X2</option>
+          <option value="Over">Over</option>
+          <option value="Under">Under</option>
+        </select>
+      </div>
+      <div class="filter-group">
+        <span class="filter-label">Min EV%</span>
+        <input type="number" id="minor-filter-ev" value="0" min="0" max="50" onchange="renderMinorTable()" style="width:60px">
+      </div>
+    </div>
+    <div class="table-wrap">
+      <table>
+        <thead>
+          <tr>
+            <th>Tier</th><th>Jogo</th><th>Liga</th><th>País</th>
+            <th>Mercado</th><th>Per.</th>
+            <th>Odd</th><th>Prob. Modelo</th><th>Prob. Implícita</th>
+            <th>EV%</th><th>Kelly%</th>
+            <th>λ Casa</th><th>λ Fora</th>
+          </tr>
+        </thead>
+        <tbody id="minor-bets-tbody"></tbody>
+      </table>
+    </div>
+  </div>
+
+  <!-- Perfil das ligas menores -->
+  <div class="card" style="margin-top:16px">
+    <div class="card-title">📊 Perfil das Ligas Menores Analisadas</div>
+    <div class="table-wrap">
+      <table>
+        <thead>
+          <tr>
+            <th>Liga</th><th>Jogos</th>
+            <th>Média Gols FT</th><th>Over 2.5%</th><th>BTTS%</th>
+            <th>Casa%</th><th>Empate%</th><th>Fora%</th>
+            <th>Média Gols HT</th><th>Over 1.5 HT%</th>
+          </tr>
+        </thead>
+        <tbody id="minor-profiles-tbody"></tbody>
+      </table>
+    </div>
+  </div>
+
+</div>
+
 </main>
 
 <footer>
@@ -393,11 +509,11 @@ footer {
 
 <script>
 // ── DATA ────────────────────────────────────────────────────────────────
-const ALL_BETS = [{"fixture_id": "1001", "home_team": "Arsenal", "away_team": "Chelsea", "league": "Premier League", "kickoff": "2025-05-06T15:00:00", "market": "Over 2.5", "outcome": "over_25", "bet365_odd": 1.87, "implied_prob": 0.535, "model_prob": 0.682, "ev_pct": 27.5, "kelly_pct": 14.2, "convergence": 8, "model_std": 0.04, "tier": "Elite", "tier_emoji": "🔥", "clv_expected": 16.5, "edge": 0.147, "models_detail": {}}, {"fixture_id": "1002", "home_team": "Real Madrid", "away_team": "Barcelona", "league": "La Liga", "kickoff": "2025-05-06T20:00:00", "market": "BTTS — Sim", "outcome": "btts_yes", "bet365_odd": 1.72, "implied_prob": 0.581, "model_prob": 0.712, "ev_pct": 22.5, "kelly_pct": 11.8, "convergence": 7, "model_std": 0.05, "tier": "Elite", "tier_emoji": "🔥", "clv_expected": 13.5, "edge": 0.131, "models_detail": {}}, {"fixture_id": "1003", "home_team": "Flamengo", "away_team": "Palmeiras", "league": "Brasileirão Série A", "kickoff": "2025-05-06T21:30:00", "market": "Vitória Casa", "outcome": "home", "bet365_odd": 2.1, "implied_prob": 0.476, "model_prob": 0.608, "ev_pct": 17.7, "kelly_pct": 9.1, "convergence": 6, "model_std": 0.06, "tier": "Forte", "tier_emoji": "⚡", "clv_expected": 10.6, "edge": 0.132, "models_detail": {}}, {"fixture_id": "1004", "home_team": "Inter Milan", "away_team": "Juventus", "league": "Serie A", "kickoff": "2025-05-06T17:00:00", "market": "Over 1.5", "outcome": "over_15", "bet365_odd": 1.45, "implied_prob": 0.69, "model_prob": 0.821, "ev_pct": 19.0, "kelly_pct": 8.5, "convergence": 9, "model_std": 0.03, "tier": "Elite", "tier_emoji": "🔥", "clv_expected": 11.4, "edge": 0.131, "models_detail": {}}, {"fixture_id": "1005", "home_team": "Bayern Munich", "away_team": "Dortmund", "league": "Bundesliga", "kickoff": "2025-05-06T14:30:00", "market": "Cartões Over 4.5", "outcome": "cards_over_45", "bet365_odd": 1.95, "implied_prob": 0.513, "model_prob": 0.641, "ev_pct": 25.0, "kelly_pct": 12.0, "convergence": 6, "model_std": 0.07, "tier": "Forte", "tier_emoji": "⚡", "clv_expected": 15.0, "edge": 0.128, "models_detail": {}}, {"fixture_id": "1006", "home_team": "PSG", "away_team": "Lyon", "league": "Ligue 1", "kickoff": "2025-05-06T19:00:00", "market": "1X2 — Vitória Casa", "outcome": "home", "bet365_odd": 1.68, "implied_prob": 0.595, "model_prob": 0.721, "ev_pct": 21.2, "kelly_pct": 10.4, "convergence": 7, "model_std": 0.05, "tier": "Forte", "tier_emoji": "⚡", "clv_expected": 12.7, "edge": 0.126, "models_detail": {}}, {"fixture_id": "1007", "home_team": "Manchester City", "away_team": "Liverpool", "league": "Premier League", "kickoff": "2025-05-06T12:30:00", "market": "Over 3.5", "outcome": "over_35", "bet365_odd": 2.8, "implied_prob": 0.357, "model_prob": 0.452, "ev_pct": 26.6, "kelly_pct": 7.2, "convergence": 5, "model_std": 0.09, "tier": "Moderada", "tier_emoji": "🟡", "clv_expected": 16.0, "edge": 0.095, "models_detail": {}}, {"fixture_id": "1008", "home_team": "Atletico MG", "away_team": "São Paulo", "league": "Brasileirão Série A", "kickoff": "2025-05-06T19:00:00", "market": "BTTS — Sim", "outcome": "btts_yes", "bet365_odd": 1.8, "implied_prob": 0.556, "model_prob": 0.681, "ev_pct": 22.6, "kelly_pct": 10.8, "convergence": 6, "model_std": 0.06, "tier": "Forte", "tier_emoji": "⚡", "clv_expected": 13.6, "edge": 0.125, "models_detail": {}}];
+const ALL_BETS = [{"fixture_id": "1001", "home_team": "Arsenal", "away_team": "Chelsea", "league": "Premier League", "kickoff": "2025-05-06T15:00:00", "market": "Over 2.5", "outcome": "over_25", "bet365_odd": 1.87, "implied_prob": 0.535, "model_prob": 0.682, "ev_pct": 27.5, "kelly_pct": 14.2, "convergence": 8, "model_std": 0.04, "tier": "Elite", "tier_emoji": "🔥", "clv_expected": 16.5, "edge": 0.147, "models_detail": {}}, {"fixture_id": "1002", "home_team": "Real Madrid", "away_team": "Barcelona", "league": "La Liga", "kickoff": "2025-05-06T20:00:00", "market": "BTTS — Sim", "outcome": "btts_yes", "bet365_odd": 1.72, "implied_prob": 0.581, "model_prob": 0.712, "ev_pct": 22.5, "kelly_pct": 11.8, "convergence": 7, "model_std": 0.05, "tier": "Elite", "tier_emoji": "🔥", "clv_expected": 13.5, "edge": 0.131, "models_detail": {}}, {"fixture_id": "1003", "home_team": "Flamengo", "away_team": "Palmeiras", "league": "Brasileirão Série A", "kickoff": "2025-05-06T21:30:00", "market": "Vitória Casa", "outcome": "home", "bet365_odd": 2.1, "implied_prob": 0.476, "model_prob": 0.608, "ev_pct": 17.7, "kelly_pct": 9.1, "convergence": 6, "model_std": 0.06, "tier": "Forte", "tier_emoji": "⚡", "clv_expected": 10.6, "edge": 0.132, "models_detail": {}}];
 const METRICS  = {"total_bets": 248, "green": 142, "red": 89, "hit_rate": 57.3, "total_stake": 248.0, "total_pl": 31.4, "roi": 12.66, "yield_pct": 12.66, "max_drawdown": -18.5, "avg_clv": 4.2, "ev_avg": 11.3, "by_tier": {"Elite": {"bets": 34, "roi": 22.1, "hit_rate": 64.7}, "Forte": {"bets": 89, "roi": 14.5, "hit_rate": 59.6}, "Moderada": {"bets": 125, "roi": 7.8, "hit_rate": 53.6}}};
-const LEAGUES  = [{"league": "Premier League", "matches_analyzed": 380, "avg_goals_pg": 2.87, "avg_home_goals": 1.54, "avg_away_goals": 1.33, "btts_pct": 58.4, "over25_pct": 62.1, "over15_pct": 80.5, "home_win_pct": 44.7, "draw_pct": 24.7, "away_win_pct": 30.5, "avg_cards_pg": 4.2}, {"league": "La Liga", "matches_analyzed": 380, "avg_goals_pg": 2.61, "avg_home_goals": 1.42, "avg_away_goals": 1.19, "btts_pct": 52.1, "over25_pct": 55.8, "over15_pct": 77.4, "home_win_pct": 46.3, "draw_pct": 27.1, "away_win_pct": 26.6, "avg_cards_pg": 5.1}, {"league": "Serie A", "matches_analyzed": 380, "avg_goals_pg": 2.53, "avg_home_goals": 1.38, "avg_away_goals": 1.15, "btts_pct": 51.3, "over25_pct": 54.2, "over15_pct": 75.3, "home_win_pct": 45.8, "draw_pct": 28.4, "away_win_pct": 25.8, "avg_cards_pg": 4.8}, {"league": "Bundesliga", "matches_analyzed": 306, "avg_goals_pg": 3.12, "avg_home_goals": 1.72, "avg_away_goals": 1.4, "btts_pct": 62.1, "over25_pct": 67.3, "over15_pct": 83.7, "home_win_pct": 43.1, "draw_pct": 24.2, "away_win_pct": 32.7, "avg_cards_pg": 3.9}, {"league": "Ligue 1", "matches_analyzed": 380, "avg_goals_pg": 2.44, "avg_home_goals": 1.35, "avg_away_goals": 1.09, "btts_pct": 48.7, "over25_pct": 51.6, "over15_pct": 72.9, "home_win_pct": 47.9, "draw_pct": 27.9, "away_win_pct": 24.2, "avg_cards_pg": 4.5}, {"league": "Brasileirão Série A", "matches_analyzed": 380, "avg_goals_pg": 2.31, "avg_home_goals": 1.28, "avg_away_goals": 1.03, "btts_pct": 46.3, "over25_pct": 48.4, "over15_pct": 70.8, "home_win_pct": 48.7, "draw_pct": 28.4, "away_win_pct": 22.9, "avg_cards_pg": 5.6}];
-const RECENT   = [{"date": "2025-05-05", "home_team": "Arsenal", "away_team": "Tottenham", "market": "Over 2.5", "bet365_odd": 1.85, "ev_pct": 18.4, "tier": "Forte", "result": "GREEN ✅", "profit_loss": 0.85, "roi": 85.0, "clv_realized": 5.2}, {"date": "2025-05-05", "home_team": "Real Madrid", "away_team": "Sevilla", "market": "Vitória Casa", "bet365_odd": 1.45, "ev_pct": 12.1, "tier": "Forte", "result": "GREEN ✅", "profit_loss": 0.45, "roi": 45.0, "clv_realized": 3.1}, {"date": "2025-05-05", "home_team": "Juventus", "away_team": "Roma", "market": "BTTS — Sim", "bet365_odd": 1.78, "ev_pct": 15.3, "tier": "Forte", "result": "RED ❌", "profit_loss": -1.0, "roi": -100.0, "clv_realized": 2.8}, {"date": "2025-05-04", "home_team": "Bayern Munich", "away_team": "Leipzig", "market": "Over 3.5", "bet365_odd": 2.4, "ev_pct": 22.0, "tier": "Elite", "result": "GREEN ✅", "profit_loss": 1.4, "roi": 140.0, "clv_realized": 8.5}, {"date": "2025-05-04", "home_team": "PSG", "away_team": "Monaco", "market": "Vitória Casa", "bet365_odd": 1.55, "ev_pct": 9.2, "tier": "Moderada", "result": "GREEN ✅", "profit_loss": 0.55, "roi": 55.0, "clv_realized": 2.1}];
-const HOT_BETS = [{"fixture_id": "1001", "home_team": "Arsenal", "away_team": "Chelsea", "league": "Premier League", "kickoff": "2025-05-06T15:00:00", "market": "Over 2.5", "outcome": "over_25", "bet365_odd": 1.87, "implied_prob": 0.535, "model_prob": 0.682, "ev_pct": 27.5, "kelly_pct": 14.2, "convergence": 8, "model_std": 0.04, "tier": "Elite", "tier_emoji": "🔥", "clv_expected": 16.5, "edge": 0.147, "models_detail": {}}, {"fixture_id": "1002", "home_team": "Real Madrid", "away_team": "Barcelona", "league": "La Liga", "kickoff": "2025-05-06T20:00:00", "market": "BTTS — Sim", "outcome": "btts_yes", "bet365_odd": 1.72, "implied_prob": 0.581, "model_prob": 0.712, "ev_pct": 22.5, "kelly_pct": 11.8, "convergence": 7, "model_std": 0.05, "tier": "Elite", "tier_emoji": "🔥", "clv_expected": 13.5, "edge": 0.131, "models_detail": {}}, {"fixture_id": "1003", "home_team": "Flamengo", "away_team": "Palmeiras", "league": "Brasileirão Série A", "kickoff": "2025-05-06T21:30:00", "market": "Vitória Casa", "outcome": "home", "bet365_odd": 2.1, "implied_prob": 0.476, "model_prob": 0.608, "ev_pct": 17.7, "kelly_pct": 9.1, "convergence": 6, "model_std": 0.06, "tier": "Forte", "tier_emoji": "⚡", "clv_expected": 10.6, "edge": 0.132, "models_detail": {}}, {"fixture_id": "1004", "home_team": "Inter Milan", "away_team": "Juventus", "league": "Serie A", "kickoff": "2025-05-06T17:00:00", "market": "Over 1.5", "outcome": "over_15", "bet365_odd": 1.45, "implied_prob": 0.69, "model_prob": 0.821, "ev_pct": 19.0, "kelly_pct": 8.5, "convergence": 9, "model_std": 0.03, "tier": "Elite", "tier_emoji": "🔥", "clv_expected": 11.4, "edge": 0.131, "models_detail": {}}, {"fixture_id": "1005", "home_team": "Bayern Munich", "away_team": "Dortmund", "league": "Bundesliga", "kickoff": "2025-05-06T14:30:00", "market": "Cartões Over 4.5", "outcome": "cards_over_45", "bet365_odd": 1.95, "implied_prob": 0.513, "model_prob": 0.641, "ev_pct": 25.0, "kelly_pct": 12.0, "convergence": 6, "model_std": 0.07, "tier": "Forte", "tier_emoji": "⚡", "clv_expected": 15.0, "edge": 0.128, "models_detail": {}}, {"fixture_id": "1006", "home_team": "PSG", "away_team": "Lyon", "league": "Ligue 1", "kickoff": "2025-05-06T19:00:00", "market": "1X2 — Vitória Casa", "outcome": "home", "bet365_odd": 1.68, "implied_prob": 0.595, "model_prob": 0.721, "ev_pct": 21.2, "kelly_pct": 10.4, "convergence": 7, "model_std": 0.05, "tier": "Forte", "tier_emoji": "⚡", "clv_expected": 12.7, "edge": 0.126, "models_detail": {}}, {"fixture_id": "1007", "home_team": "Manchester City", "away_team": "Liverpool", "league": "Premier League", "kickoff": "2025-05-06T12:30:00", "market": "Over 3.5", "outcome": "over_35", "bet365_odd": 2.8, "implied_prob": 0.357, "model_prob": 0.452, "ev_pct": 26.6, "kelly_pct": 7.2, "convergence": 5, "model_std": 0.09, "tier": "Moderada", "tier_emoji": "🟡", "clv_expected": 16.0, "edge": 0.095, "models_detail": {}}, {"fixture_id": "1008", "home_team": "Atletico MG", "away_team": "São Paulo", "league": "Brasileirão Série A", "kickoff": "2025-05-06T19:00:00", "market": "BTTS — Sim", "outcome": "btts_yes", "bet365_odd": 1.8, "implied_prob": 0.556, "model_prob": 0.681, "ev_pct": 22.6, "kelly_pct": 10.8, "convergence": 6, "model_std": 0.06, "tier": "Forte", "tier_emoji": "⚡", "clv_expected": 13.6, "edge": 0.125, "models_detail": {}}];
+const LEAGUES  = [{"league": "Premier League", "matches_analyzed": 380, "avg_goals_pg": 2.87, "btts_pct": 58.4, "over25_pct": 62.1, "home_win_pct": 44.7, "draw_pct": 24.7, "away_win_pct": 30.5}, {"league": "Bundesliga", "matches_analyzed": 306, "avg_goals_pg": 3.12, "btts_pct": 62.1, "over25_pct": 67.3, "home_win_pct": 43.1, "draw_pct": 24.2, "away_win_pct": 32.7}];
+const RECENT   = [{"date": "2025-05-05", "home_team": "Arsenal", "away_team": "Tottenham", "market": "Over 2.5", "bet365_odd": 1.85, "ev_pct": 18.4, "tier": "Forte", "result": "GREEN ✅", "profit_loss": 0.85, "roi": 85.0, "clv_realized": 5.2}, {"date": "2025-05-05", "home_team": "Juventus", "away_team": "Roma", "market": "BTTS — Sim", "bet365_odd": 1.78, "ev_pct": 15.3, "tier": "Forte", "result": "RED ❌", "profit_loss": -1.0, "roi": -100.0, "clv_realized": 2.8}];
+const HOT_BETS = [{"fixture_id": "1001", "home_team": "Arsenal", "away_team": "Chelsea", "league": "Premier League", "kickoff": "2025-05-06T15:00:00", "market": "Over 2.5", "outcome": "over_25", "bet365_odd": 1.87, "implied_prob": 0.535, "model_prob": 0.682, "ev_pct": 27.5, "kelly_pct": 14.2, "convergence": 8, "model_std": 0.04, "tier": "Elite", "tier_emoji": "🔥", "clv_expected": 16.5, "edge": 0.147, "models_detail": {}}, {"fixture_id": "1002", "home_team": "Real Madrid", "away_team": "Barcelona", "league": "La Liga", "kickoff": "2025-05-06T20:00:00", "market": "BTTS — Sim", "outcome": "btts_yes", "bet365_odd": 1.72, "implied_prob": 0.581, "model_prob": 0.712, "ev_pct": 22.5, "kelly_pct": 11.8, "convergence": 7, "model_std": 0.05, "tier": "Elite", "tier_emoji": "🔥", "clv_expected": 13.5, "edge": 0.131, "models_detail": {}}, {"fixture_id": "1003", "home_team": "Flamengo", "away_team": "Palmeiras", "league": "Brasileirão Série A", "kickoff": "2025-05-06T21:30:00", "market": "Vitória Casa", "outcome": "home", "bet365_odd": 2.1, "implied_prob": 0.476, "model_prob": 0.608, "ev_pct": 17.7, "kelly_pct": 9.1, "convergence": 6, "model_std": 0.06, "tier": "Forte", "tier_emoji": "⚡", "clv_expected": 10.6, "edge": 0.132, "models_detail": {}}];
 const TOTAL_FIXTURES = 47;
 const TOTAL_VALUE_BETS = 12;
 const DATE = "2025-05-06";
@@ -660,6 +776,91 @@ populateFilters();
 renderTable();
 renderTracking();
 renderLeagues();
+
+// ── MINOR LEAGUES ─────────────────────────────────────────────────────────
+const MINOR_BETS   = [{"fixture_id": "m001", "home_team": "Víkingur Reykjavik", "away_team": "KR Reykjavik", "league": "Úrvalsdeild", "country": "Iceland", "group": "minor_europe", "kickoff": "2025-05-06T18:00:00", "market": "Over 2.5 FT", "outcome": "over_25_ft", "period": "FT", "bet365_odd": 1.9, "implied_prob": 0.526, "model_prob": 0.672, "ev_pct": 27.7, "kelly_pct": 15.2, "convergence": 0, "model_std": 0, "tier": "Elite", "tier_emoji": "🔥", "clv_expected": 16.6, "edge": 0.146, "mu_home_ft": 1.52, "mu_away_ft": 1.31, "mu_home_ht": 0.65, "mu_away_ht": 0.56, "sim_avg_ft": 2.83, "sim_avg_ht": 1.21, "is_minor": true}, {"fixture_id": "m002", "home_team": "FH Hafnarfjörður", "away_team": "Breiðablik", "league": "Úrvalsdeild", "country": "Iceland", "group": "minor_europe", "kickoff": "2025-05-06T18:00:00", "market": "Over 1.5 HT", "outcome": "over_15_ht", "period": "HT", "bet365_odd": 2.75, "implied_prob": 0.364, "model_prob": 0.491, "ev_pct": 35.0, "kelly_pct": 12.1, "convergence": 0, "model_std": 0, "tier": "Elite", "tier_emoji": "🔥", "clv_expected": 21.0, "edge": 0.127, "mu_home_ft": 1.38, "mu_away_ft": 1.22, "mu_home_ht": 0.59, "mu_away_ht": 0.52, "sim_avg_ft": 2.6, "sim_avg_ht": 1.11, "is_minor": true}, {"fixture_id": "m003", "home_team": "Wellington Phoenix", "away_team": "Auckland City", "league": "NZ Premiership", "country": "New Zealand", "group": "minor_oceania", "kickoff": "2025-05-06T07:00:00", "market": "1X2 — Vitória Casa", "outcome": "home", "period": "FT", "bet365_odd": 1.85, "implied_prob": 0.541, "model_prob": 0.694, "ev_pct": 28.3, "kelly_pct": 13.0, "convergence": 0, "model_std": 0, "tier": "Elite", "tier_emoji": "🔥", "clv_expected": 17.0, "edge": 0.153, "mu_home_ft": 1.8, "mu_away_ft": 0.9, "mu_home_ht": 0.77, "mu_away_ht": 0.39, "sim_avg_ft": 2.7, "sim_avg_ht": 1.16, "is_minor": true}, {"fixture_id": "m004", "home_team": "Sydney Olympic", "away_team": "Marconi FC", "league": "NPL New South Wales", "country": "Australia", "group": "minor_oceania", "kickoff": "2025-05-06T09:00:00", "market": "Over 2.5 FT", "outcome": "over_25_ft", "period": "FT", "bet365_odd": 1.78, "implied_prob": 0.562, "model_prob": 0.701, "ev_pct": 24.8, "kelly_pct": 12.8, "convergence": 0, "model_std": 0, "tier": "Elite", "tier_emoji": "🔥", "clv_expected": 14.9, "edge": 0.139, "mu_home_ft": 1.6, "mu_away_ft": 1.25, "mu_home_ht": 0.68, "mu_away_ht": 0.54, "sim_avg_ft": 2.85, "sim_avg_ht": 1.22, "is_minor": true}, {"fixture_id": "m005", "home_team": "Vestri", "away_team": "Þór Akureyri", "league": "1. deild", "country": "Iceland", "group": "minor_europe", "kickoff": "2025-05-06T15:00:00", "market": "Over 0.5 HT", "outcome": "over_05_ht", "period": "HT", "bet365_odd": 1.35, "implied_prob": 0.741, "model_prob": 0.891, "ev_pct": 20.3, "kelly_pct": 16.1, "convergence": 0, "model_std": 0, "tier": "Forte", "tier_emoji": "⚡", "clv_expected": 12.2, "edge": 0.15, "mu_home_ft": 1.42, "mu_away_ft": 1.08, "mu_home_ht": 0.61, "mu_away_ht": 0.46, "sim_avg_ft": 2.5, "sim_avg_ht": 1.07, "is_minor": true}, {"fixture_id": "m006", "home_team": "Club Atlético Huracán", "away_team": "Almagro", "league": "Argentine Primera B", "country": "Argentina", "group": "minor_americas", "kickoff": "2025-05-06T20:00:00", "market": "Over 2.5 FT", "outcome": "over_25_ft", "period": "FT", "bet365_odd": 2.05, "implied_prob": 0.488, "model_prob": 0.628, "ev_pct": 28.7, "kelly_pct": 12.9, "convergence": 0, "model_std": 0, "tier": "Elite", "tier_emoji": "🔥", "clv_expected": 17.2, "edge": 0.14, "mu_home_ft": 1.48, "mu_away_ft": 1.28, "mu_home_ht": 0.63, "mu_away_ht": 0.55, "sim_avg_ft": 2.76, "sim_avg_ht": 1.18, "is_minor": true}, {"fixture_id": "m007", "home_team": "Mafra", "away_team": "Leixões", "league": "Liga de Portugal 2", "country": "Portugal", "group": "tier_3", "kickoff": "2025-05-06T17:00:00", "market": "1X2 — Empate", "outcome": "draw", "period": "FT", "bet365_odd": 3.2, "implied_prob": 0.313, "model_prob": 0.421, "ev_pct": 34.7, "kelly_pct": 11.6, "convergence": 0, "model_std": 0, "tier": "Elite", "tier_emoji": "🔥", "clv_expected": 20.8, "edge": 0.108, "mu_home_ft": 1.15, "mu_away_ft": 1.08, "mu_home_ht": 0.49, "mu_away_ht": 0.46, "sim_avg_ft": 2.23, "sim_avg_ht": 0.95, "is_minor": true}, {"fixture_id": "m008", "home_team": "Riga FC", "away_team": "RFS", "league": "Latvian Higher League", "country": "Latvia", "group": "minor_europe", "kickoff": "2025-05-06T16:00:00", "market": "Over 1.5 FT", "outcome": "over_15_ft", "period": "FT", "bet365_odd": 1.4, "implied_prob": 0.714, "model_prob": 0.854, "ev_pct": 19.6, "kelly_pct": 14.7, "convergence": 0, "model_std": 0, "tier": "Forte", "tier_emoji": "⚡", "clv_expected": 11.8, "edge": 0.14, "mu_home_ft": 1.35, "mu_away_ft": 1.1, "mu_home_ht": 0.58, "mu_away_ht": 0.47, "sim_avg_ft": 2.45, "sim_avg_ht": 1.05, "is_minor": true}];
+const MINOR_HOT    = [{"fixture_id": "m001", "home_team": "Víkingur Reykjavik", "away_team": "KR Reykjavik", "league": "Úrvalsdeild", "country": "Iceland", "group": "minor_europe", "kickoff": "2025-05-06T18:00:00", "market": "Over 2.5 FT", "outcome": "over_25_ft", "period": "FT", "bet365_odd": 1.9, "implied_prob": 0.526, "model_prob": 0.672, "ev_pct": 27.7, "kelly_pct": 15.2, "convergence": 0, "model_std": 0, "tier": "Elite", "tier_emoji": "🔥", "clv_expected": 16.6, "edge": 0.146, "mu_home_ft": 1.52, "mu_away_ft": 1.31, "mu_home_ht": 0.65, "mu_away_ht": 0.56, "sim_avg_ft": 2.83, "sim_avg_ht": 1.21, "is_minor": true}, {"fixture_id": "m002", "home_team": "FH Hafnarfjörður", "away_team": "Breiðablik", "league": "Úrvalsdeild", "country": "Iceland", "group": "minor_europe", "kickoff": "2025-05-06T18:00:00", "market": "Over 1.5 HT", "outcome": "over_15_ht", "period": "HT", "bet365_odd": 2.75, "implied_prob": 0.364, "model_prob": 0.491, "ev_pct": 35.0, "kelly_pct": 12.1, "convergence": 0, "model_std": 0, "tier": "Elite", "tier_emoji": "🔥", "clv_expected": 21.0, "edge": 0.127, "mu_home_ft": 1.38, "mu_away_ft": 1.22, "mu_home_ht": 0.59, "mu_away_ht": 0.52, "sim_avg_ft": 2.6, "sim_avg_ht": 1.11, "is_minor": true}, {"fixture_id": "m003", "home_team": "Wellington Phoenix", "away_team": "Auckland City", "league": "NZ Premiership", "country": "New Zealand", "group": "minor_oceania", "kickoff": "2025-05-06T07:00:00", "market": "1X2 — Vitória Casa", "outcome": "home", "period": "FT", "bet365_odd": 1.85, "implied_prob": 0.541, "model_prob": 0.694, "ev_pct": 28.3, "kelly_pct": 13.0, "convergence": 0, "model_std": 0, "tier": "Elite", "tier_emoji": "🔥", "clv_expected": 17.0, "edge": 0.153, "mu_home_ft": 1.8, "mu_away_ft": 0.9, "mu_home_ht": 0.77, "mu_away_ht": 0.39, "sim_avg_ft": 2.7, "sim_avg_ht": 1.16, "is_minor": true}, {"fixture_id": "m004", "home_team": "Sydney Olympic", "away_team": "Marconi FC", "league": "NPL New South Wales", "country": "Australia", "group": "minor_oceania", "kickoff": "2025-05-06T09:00:00", "market": "Over 2.5 FT", "outcome": "over_25_ft", "period": "FT", "bet365_odd": 1.78, "implied_prob": 0.562, "model_prob": 0.701, "ev_pct": 24.8, "kelly_pct": 12.8, "convergence": 0, "model_std": 0, "tier": "Elite", "tier_emoji": "🔥", "clv_expected": 14.9, "edge": 0.139, "mu_home_ft": 1.6, "mu_away_ft": 1.25, "mu_home_ht": 0.68, "mu_away_ht": 0.54, "sim_avg_ft": 2.85, "sim_avg_ht": 1.22, "is_minor": true}, {"fixture_id": "m005", "home_team": "Vestri", "away_team": "Þór Akureyri", "league": "1. deild", "country": "Iceland", "group": "minor_europe", "kickoff": "2025-05-06T15:00:00", "market": "Over 0.5 HT", "outcome": "over_05_ht", "period": "HT", "bet365_odd": 1.35, "implied_prob": 0.741, "model_prob": 0.891, "ev_pct": 20.3, "kelly_pct": 16.1, "convergence": 0, "model_std": 0, "tier": "Forte", "tier_emoji": "⚡", "clv_expected": 12.2, "edge": 0.15, "mu_home_ft": 1.42, "mu_away_ft": 1.08, "mu_home_ht": 0.61, "mu_away_ht": 0.46, "sim_avg_ft": 2.5, "sim_avg_ht": 1.07, "is_minor": true}];
+const MINOR_GROUPS = {"minor_europe": [{"fixture_id": "m001", "home_team": "Víkingur Reykjavik", "away_team": "KR Reykjavik", "league": "Úrvalsdeild", "country": "Iceland", "group": "minor_europe", "kickoff": "2025-05-06T18:00:00", "market": "Over 2.5 FT", "outcome": "over_25_ft", "period": "FT", "bet365_odd": 1.9, "implied_prob": 0.526, "model_prob": 0.672, "ev_pct": 27.7, "kelly_pct": 15.2, "convergence": 0, "model_std": 0, "tier": "Elite", "tier_emoji": "🔥", "clv_expected": 16.6, "edge": 0.146, "mu_home_ft": 1.52, "mu_away_ft": 1.31, "mu_home_ht": 0.65, "mu_away_ht": 0.56, "sim_avg_ft": 2.83, "sim_avg_ht": 1.21, "is_minor": true}, {"fixture_id": "m002", "home_team": "FH Hafnarfjörður", "away_team": "Breiðablik", "league": "Úrvalsdeild", "country": "Iceland", "group": "minor_europe", "kickoff": "2025-05-06T18:00:00", "market": "Over 1.5 HT", "outcome": "over_15_ht", "period": "HT", "bet365_odd": 2.75, "implied_prob": 0.364, "model_prob": 0.491, "ev_pct": 35.0, "kelly_pct": 12.1, "convergence": 0, "model_std": 0, "tier": "Elite", "tier_emoji": "🔥", "clv_expected": 21.0, "edge": 0.127, "mu_home_ft": 1.38, "mu_away_ft": 1.22, "mu_home_ht": 0.59, "mu_away_ht": 0.52, "sim_avg_ft": 2.6, "sim_avg_ht": 1.11, "is_minor": true}, {"fixture_id": "m005", "home_team": "Vestri", "away_team": "Þór Akureyri", "league": "1. deild", "country": "Iceland", "group": "minor_europe", "kickoff": "2025-05-06T15:00:00", "market": "Over 0.5 HT", "outcome": "over_05_ht", "period": "HT", "bet365_odd": 1.35, "implied_prob": 0.741, "model_prob": 0.891, "ev_pct": 20.3, "kelly_pct": 16.1, "convergence": 0, "model_std": 0, "tier": "Forte", "tier_emoji": "⚡", "clv_expected": 12.2, "edge": 0.15, "mu_home_ft": 1.42, "mu_away_ft": 1.08, "mu_home_ht": 0.61, "mu_away_ht": 0.46, "sim_avg_ft": 2.5, "sim_avg_ht": 1.07, "is_minor": true}, {"fixture_id": "m008", "home_team": "Riga FC", "away_team": "RFS", "league": "Latvian Higher League", "country": "Latvia", "group": "minor_europe", "kickoff": "2025-05-06T16:00:00", "market": "Over 1.5 FT", "outcome": "over_15_ft", "period": "FT", "bet365_odd": 1.4, "implied_prob": 0.714, "model_prob": 0.854, "ev_pct": 19.6, "kelly_pct": 14.7, "convergence": 0, "model_std": 0, "tier": "Forte", "tier_emoji": "⚡", "clv_expected": 11.8, "edge": 0.14, "mu_home_ft": 1.35, "mu_away_ft": 1.1, "mu_home_ht": 0.58, "mu_away_ht": 0.47, "sim_avg_ft": 2.45, "sim_avg_ht": 1.05, "is_minor": true}], "minor_oceania": [{"fixture_id": "m003", "home_team": "Wellington Phoenix", "away_team": "Auckland City", "league": "NZ Premiership", "country": "New Zealand", "group": "minor_oceania", "kickoff": "2025-05-06T07:00:00", "market": "1X2 — Vitória Casa", "outcome": "home", "period": "FT", "bet365_odd": 1.85, "implied_prob": 0.541, "model_prob": 0.694, "ev_pct": 28.3, "kelly_pct": 13.0, "convergence": 0, "model_std": 0, "tier": "Elite", "tier_emoji": "🔥", "clv_expected": 17.0, "edge": 0.153, "mu_home_ft": 1.8, "mu_away_ft": 0.9, "mu_home_ht": 0.77, "mu_away_ht": 0.39, "sim_avg_ft": 2.7, "sim_avg_ht": 1.16, "is_minor": true}, {"fixture_id": "m004", "home_team": "Sydney Olympic", "away_team": "Marconi FC", "league": "NPL New South Wales", "country": "Australia", "group": "minor_oceania", "kickoff": "2025-05-06T09:00:00", "market": "Over 2.5 FT", "outcome": "over_25_ft", "period": "FT", "bet365_odd": 1.78, "implied_prob": 0.562, "model_prob": 0.701, "ev_pct": 24.8, "kelly_pct": 12.8, "convergence": 0, "model_std": 0, "tier": "Elite", "tier_emoji": "🔥", "clv_expected": 14.9, "edge": 0.139, "mu_home_ft": 1.6, "mu_away_ft": 1.25, "mu_home_ht": 0.68, "mu_away_ht": 0.54, "sim_avg_ft": 2.85, "sim_avg_ht": 1.22, "is_minor": true}], "minor_americas": [{"fixture_id": "m006", "home_team": "Club Atlético Huracán", "away_team": "Almagro", "league": "Argentine Primera B", "country": "Argentina", "group": "minor_americas", "kickoff": "2025-05-06T20:00:00", "market": "Over 2.5 FT", "outcome": "over_25_ft", "period": "FT", "bet365_odd": 2.05, "implied_prob": 0.488, "model_prob": 0.628, "ev_pct": 28.7, "kelly_pct": 12.9, "convergence": 0, "model_std": 0, "tier": "Elite", "tier_emoji": "🔥", "clv_expected": 17.2, "edge": 0.14, "mu_home_ft": 1.48, "mu_away_ft": 1.28, "mu_home_ht": 0.63, "mu_away_ht": 0.55, "sim_avg_ft": 2.76, "sim_avg_ht": 1.18, "is_minor": true}]};
+const MINOR_PROF   = [{"league": "Úrvalsdeild", "n_matches": 45, "avg_goals_ft": 2.78, "avg_home_goals": 1.51, "avg_away_goals": 1.27, "over_05_ft": 0.93, "over_15_ft": 0.76, "over_25_ft": 0.57, "over_35_ft": 0.33, "btts_ft": 0.53, "home_win_rate": 0.47, "draw_rate": 0.24, "away_win_rate": 0.29, "avg_goals_ht": 1.18, "over_05_ht": 0.71, "over_15_ht": 0.37, "over_25_ht": 0.15, "ht_ft_ratio": 0.42}, {"league": "1. deild", "n_matches": 30, "avg_goals_ft": 2.55, "avg_home_goals": 1.4, "avg_away_goals": 1.15, "over_05_ft": 0.91, "over_15_ft": 0.73, "over_25_ft": 0.53, "over_35_ft": 0.29, "btts_ft": 0.49, "home_win_rate": 0.46, "draw_rate": 0.27, "away_win_rate": 0.27, "avg_goals_ht": 1.09, "over_05_ht": 0.68, "over_15_ht": 0.33, "over_25_ht": 0.13, "ht_ft_ratio": 0.43}, {"league": "NZ Premiership", "n_matches": 22, "avg_goals_ft": 2.95, "avg_home_goals": 1.62, "avg_away_goals": 1.33, "over_05_ft": 0.95, "over_15_ft": 0.8, "over_25_ft": 0.61, "over_35_ft": 0.38, "btts_ft": 0.57, "home_win_rate": 0.5, "draw_rate": 0.22, "away_win_rate": 0.28, "avg_goals_ht": 1.27, "over_05_ht": 0.74, "over_15_ht": 0.41, "over_25_ht": 0.17, "ht_ft_ratio": 0.43}, {"league": "NPL New South Wales", "n_matches": 18, "avg_goals_ft": 2.88, "avg_home_goals": 1.58, "avg_away_goals": 1.3, "over_05_ft": 0.94, "over_15_ft": 0.79, "over_25_ft": 0.6, "over_35_ft": 0.36, "btts_ft": 0.55, "home_win_rate": 0.49, "draw_rate": 0.23, "away_win_rate": 0.28, "avg_goals_ht": 1.23, "over_05_ht": 0.72, "over_15_ht": 0.39, "over_25_ht": 0.16, "ht_ft_ratio": 0.43}, {"league": "Latvian Higher League", "n_matches": 35, "avg_goals_ft": 2.42, "avg_home_goals": 1.33, "avg_away_goals": 1.09, "over_05_ft": 0.9, "over_15_ft": 0.71, "over_25_ft": 0.5, "over_35_ft": 0.27, "btts_ft": 0.46, "home_win_rate": 0.45, "draw_rate": 0.28, "away_win_rate": 0.27, "avg_goals_ht": 1.04, "over_05_ht": 0.66, "over_15_ht": 0.31, "over_25_ht": 0.12, "ht_ft_ratio": 0.43}, {"league": "Argentine Primera B", "n_matches": 28, "avg_goals_ft": 2.62, "avg_home_goals": 1.44, "avg_away_goals": 1.18, "over_05_ft": 0.92, "over_15_ft": 0.74, "over_25_ft": 0.54, "over_35_ft": 0.31, "btts_ft": 0.5, "home_win_rate": 0.46, "draw_rate": 0.26, "away_win_rate": 0.28, "avg_goals_ht": 1.12, "over_05_ht": 0.69, "over_15_ht": 0.35, "over_25_ht": 0.14, "ht_ft_ratio": 0.43}];
+const MINOR_FIX    = 31;
+
+function renderMinorKPIs() {
+  document.getElementById('minor-fixtures-kpi').textContent = MINOR_FIX;
+  document.getElementById('minor-bets-kpi').textContent = MINOR_BETS.length;
+  const leagues = [...new Set(MINOR_BETS.map(b => b.league))].length;
+  document.getElementById('minor-leagues-kpi').textContent = leagues + ' ligas';
+}
+
+function renderMinorHot() {
+  document.getElementById('minor-hot-grid').innerHTML = MINOR_HOT.length
+    ? MINOR_HOT.map(b => betCard(b)).join('')
+    : '<div style="color:var(--muted);font-family:var(--mono);padding:20px">Nenhuma hot bet em ligas menores hoje.</div>';
+}
+
+function renderMinorTable() {
+  const group  = document.getElementById('minor-filter-group').value;
+  const period = document.getElementById('minor-filter-period').value;
+  const mkt    = document.getElementById('minor-filter-market').value;
+  const minEV  = parseFloat(document.getElementById('minor-filter-ev').value) || 0;
+
+  let bets = MINOR_BETS.filter(b => {
+    if (group  && b.group !== group)                  return false;
+    if (period && b.period !== period)                return false;
+    if (mkt    && !b.market.includes(mkt))            return false;
+    if ((b.ev_pct||0) < minEV)                        return false;
+    return true;
+  });
+  bets.sort((a,b) => (b.ev_pct||0) - (a.ev_pct||0));
+
+  const tier_class = {Elite:'elite', Forte:'forte', Moderada:'moderada'};
+  const period_badge = p => p === 'HT'
+    ? '<span style="background:rgba(159,110,255,0.15);color:var(--purple);font-family:var(--mono);font-size:9px;padding:2px 5px;border-radius:3px">HT</span>'
+    : '<span style="background:rgba(77,159,255,0.12);color:var(--blue);font-family:var(--mono);font-size:9px;padding:2px 5px;border-radius:3px">FT</span>';
+
+  document.getElementById('minor-bets-tbody').innerHTML = bets.map(b => `
+    <tr>
+      <td><span class="tier-badge ${tier_class[b.tier]||''}">${b.tier_emoji||''} ${b.tier}</span></td>
+      <td><strong>${b.home_team}</strong> vs ${b.away_team}</td>
+      <td style="color:var(--muted);font-size:10px">${b.league||'—'}</td>
+      <td style="color:var(--muted);font-size:10px">${b.country||'—'}</td>
+      <td style="color:var(--blue)">${b.market}</td>
+      <td>${period_badge(b.period)}</td>
+      <td style="color:var(--gold);font-weight:700">${(b.bet365_odd||0).toFixed(2)}</td>
+      <td>
+        <div style="color:var(--accent)">${(b.model_prob*100).toFixed(1)}%</div>
+        <div class="prob-bar"><div class="prob-fill" style="width:${b.model_prob*100}%"></div></div>
+      </td>
+      <td style="color:var(--muted)">${(b.implied_prob*100).toFixed(1)}%</td>
+      <td style="color:var(--accent);font-weight:600">+${(b.ev_pct||0).toFixed(1)}%</td>
+      <td style="color:var(--purple)">${(b.kelly_pct||0).toFixed(1)}%</td>
+      <td style="font-family:var(--mono);font-size:10px;color:var(--muted)">${(b.mu_home_ft||0).toFixed(2)}</td>
+      <td style="font-family:var(--mono);font-size:10px;color:var(--muted)">${(b.mu_away_ft||0).toFixed(2)}</td>
+    </tr>
+  `).join('') || '<tr><td colspan="13" style="text-align:center;color:var(--muted);padding:24px">Nenhuma aposta com os filtros selecionados.</td></tr>';
+}
+
+function renderMinorProfiles() {
+  document.getElementById('minor-profiles-tbody').innerHTML = MINOR_PROF.map(p => `
+    <tr>
+      <td style="font-weight:600">${p.league||'—'}</td>
+      <td style="font-family:var(--mono);color:var(--muted)">${p.n_matches||0}</td>
+      <td style="font-family:var(--mono)">${(p.avg_goals_ft||0).toFixed(2)}</td>
+      <td><span class="${(p.over_25_ft||0) > 0.55 ? 'green' : ''}">${((p.over_25_ft||0)*100).toFixed(1)}%</span></td>
+      <td><span class="${(p.btts_ft||0) > 0.50 ? 'green' : ''}">${((p.btts_ft||0)*100).toFixed(1)}%</span></td>
+      <td style="font-family:var(--mono)">${((p.home_win_rate||0)*100).toFixed(1)}%</td>
+      <td style="font-family:var(--mono)">${((p.draw_rate||0)*100).toFixed(1)}%</td>
+      <td style="font-family:var(--mono)">${((p.away_win_rate||0)*100).toFixed(1)}%</td>
+      <td style="font-family:var(--mono)">${(p.avg_goals_ht||0).toFixed(2)}</td>
+      <td><span class="${(p.over_15_ht||0) > 0.30 ? 'green' : ''}">${((p.over_15_ht||0)*100).toFixed(1)}%</span></td>
+    </tr>
+  `).join('') || '<tr><td colspan="10" style="text-align:center;color:var(--muted);padding:20px">Sem dados de ligas menores.</td></tr>';
+}
+
+renderMinorKPIs();
+renderMinorHot();
+renderMinorTable();
+renderMinorProfiles();
+
 </script>
 </body>
 </html>

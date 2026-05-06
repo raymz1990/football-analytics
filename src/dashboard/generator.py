@@ -21,12 +21,24 @@ def generate_dashboard(data: dict) -> str:
     league_profiles = data.get("league_profiles", [])
     recent_results = data.get("recent_results", [])
 
+    # Minor leagues data
+    minor = data.get("minor", {})
+    minor_fixtures   = minor.get("minor_fixtures", 0)
+    minor_value_bets = minor.get("minor_value_bets", [])
+    minor_hot_bets   = minor.get("minor_hot_bets", [])
+    minor_by_group   = minor.get("minor_by_group", {})
+    minor_profiles   = minor.get("minor_league_profiles", [])
+
     # ── Serializar JSON para JS ───────────────────────────────────────────────
-    all_bets_json = json.dumps(all_bets, ensure_ascii=False, default=str)
-    metrics_json = json.dumps(metrics, ensure_ascii=False, default=str)
+    all_bets_json        = json.dumps(all_bets, ensure_ascii=False, default=str)
+    metrics_json         = json.dumps(metrics, ensure_ascii=False, default=str)
     league_profiles_json = json.dumps(league_profiles, ensure_ascii=False, default=str)
-    recent_json = json.dumps(recent_results, ensure_ascii=False, default=str)
-    hot_bets_json = json.dumps(hot_bets, ensure_ascii=False, default=str)
+    recent_json          = json.dumps(recent_results, ensure_ascii=False, default=str)
+    hot_bets_json        = json.dumps(hot_bets, ensure_ascii=False, default=str)
+    minor_bets_json      = json.dumps(minor_value_bets, ensure_ascii=False, default=str)
+    minor_hot_json       = json.dumps(minor_hot_bets, ensure_ascii=False, default=str)
+    minor_by_group_json  = json.dumps(minor_by_group, ensure_ascii=False, default=str)
+    minor_profiles_json  = json.dumps(minor_profiles, ensure_ascii=False, default=str)
 
     html = f"""<!DOCTYPE html>
 <html lang="pt-BR">
@@ -288,6 +300,7 @@ footer {{
   <button class="nav-btn" onclick="showSection('all-bets')">📋 Todas Apostas</button>
   <button class="nav-btn" onclick="showSection('tracking')">📈 Tracking</button>
   <button class="nav-btn" onclick="showSection('leagues')">🌍 Ligas</button>
+  <button class="nav-btn" onclick="showSection('minor')">🔍 Ligas Menores</button>
 </nav>
 
 <main>
@@ -409,6 +422,121 @@ footer {{
     <div class="card-title">🌍 Perfil das Ligas</div>
     <div class="league-grid" id="league-grid"><!-- JS --></div>
   </div>
+</div>
+
+
+<!-- ══════════════════════════════════════════════════ -->
+<!-- SECTION: LIGAS MENORES                           -->
+<!-- ══════════════════════════════════════════════════ -->
+<div id="minor" class="section">
+
+  <!-- KPIs menores -->
+  <div class="kpi-grid" style="margin-bottom:20px">
+    <div class="kpi">
+      <div class="kpi-label">Fixtures Menores</div>
+      <div class="kpi-value blue" id="minor-fixtures-kpi">—</div>
+      <div class="kpi-sub">jogos hoje</div>
+    </div>
+    <div class="kpi">
+      <div class="kpi-label">Value Bets</div>
+      <div class="kpi-value gold" id="minor-bets-kpi">—</div>
+      <div class="kpi-sub">EV > 10% ligas menores</div>
+    </div>
+    <div class="kpi">
+      <div class="kpi-label">Mercados</div>
+      <div class="kpi-value green">3</div>
+      <div class="kpi-sub">1X2 · Over FT · Over HT</div>
+    </div>
+    <div class="kpi">
+      <div class="kpi-label">Cobertura</div>
+      <div class="kpi-value" style="color:var(--purple)" id="minor-leagues-kpi">—</div>
+      <div class="kpi-sub">ligas monitoradas</div>
+    </div>
+  </div>
+
+  <!-- Aviso de qualidade de dados -->
+  <div style="background:rgba(245,200,66,0.06);border:1px solid rgba(245,200,66,0.2);border-radius:8px;padding:12px 16px;margin-bottom:20px;font-family:var(--mono);font-size:11px;color:var(--gold)">
+    ⚠️ <strong>Ligas menores:</strong> modelo usa Bayesian shrinkage com dados históricos limitados.
+    Threshold de EV aumentado para +10% (vs 8% padrão). Valide sempre com múltiplas fontes.
+  </div>
+
+  <!-- Hot bets menores -->
+  <div class="card">
+    <div class="card-title">🔍 Melhores Apostas — Ligas Menores</div>
+    <div class="hot-bets-grid" id="minor-hot-grid"><!-- JS --></div>
+  </div>
+
+  <!-- Filtros -->
+  <div class="card" style="margin-top:16px">
+    <div class="card-title">📋 Todas as Apostas — Ligas Menores</div>
+    <div class="filters">
+      <div class="filter-group">
+        <span class="filter-label">Grupo</span>
+        <select id="minor-filter-group" onchange="renderMinorTable()">
+          <option value="">Todos</option>
+          <option value="minor_europe">🌍 Europa</option>
+          <option value="minor_oceania">🌏 Oceania</option>
+          <option value="minor_americas">🌎 Américas</option>
+          <option value="minor_asia">🌏 Ásia</option>
+          <option value="minor_africa">🌍 África</option>
+        </select>
+      </div>
+      <div class="filter-group">
+        <span class="filter-label">Período</span>
+        <select id="minor-filter-period" onchange="renderMinorTable()">
+          <option value="">FT e HT</option>
+          <option value="FT">Full Time</option>
+          <option value="HT">Half Time</option>
+        </select>
+      </div>
+      <div class="filter-group">
+        <span class="filter-label">Mercado</span>
+        <select id="minor-filter-market" onchange="renderMinorTable()">
+          <option value="">Todos</option>
+          <option value="1X2">1X2</option>
+          <option value="Over">Over</option>
+          <option value="Under">Under</option>
+        </select>
+      </div>
+      <div class="filter-group">
+        <span class="filter-label">Min EV%</span>
+        <input type="number" id="minor-filter-ev" value="0" min="0" max="50" onchange="renderMinorTable()" style="width:60px">
+      </div>
+    </div>
+    <div class="table-wrap">
+      <table>
+        <thead>
+          <tr>
+            <th>Tier</th><th>Jogo</th><th>Liga</th><th>País</th>
+            <th>Mercado</th><th>Per.</th>
+            <th>Odd</th><th>Prob. Modelo</th><th>Prob. Implícita</th>
+            <th>EV%</th><th>Kelly%</th>
+            <th>λ Casa</th><th>λ Fora</th>
+          </tr>
+        </thead>
+        <tbody id="minor-bets-tbody"></tbody>
+      </table>
+    </div>
+  </div>
+
+  <!-- Perfil das ligas menores -->
+  <div class="card" style="margin-top:16px">
+    <div class="card-title">📊 Perfil das Ligas Menores Analisadas</div>
+    <div class="table-wrap">
+      <table>
+        <thead>
+          <tr>
+            <th>Liga</th><th>Jogos</th>
+            <th>Média Gols FT</th><th>Over 2.5%</th><th>BTTS%</th>
+            <th>Casa%</th><th>Empate%</th><th>Fora%</th>
+            <th>Média Gols HT</th><th>Over 1.5 HT%</th>
+          </tr>
+        </thead>
+        <tbody id="minor-profiles-tbody"></tbody>
+      </table>
+    </div>
+  </div>
+
 </div>
 
 </main>
@@ -690,6 +818,91 @@ populateFilters();
 renderTable();
 renderTracking();
 renderLeagues();
+
+// ── MINOR LEAGUES ─────────────────────────────────────────────────────────
+const MINOR_BETS   = {minor_bets_json};
+const MINOR_HOT    = {minor_hot_json};
+const MINOR_GROUPS = {minor_by_group_json};
+const MINOR_PROF   = {minor_profiles_json};
+const MINOR_FIX    = {minor_fixtures};
+
+function renderMinorKPIs() {{
+  document.getElementById('minor-fixtures-kpi').textContent = MINOR_FIX;
+  document.getElementById('minor-bets-kpi').textContent = MINOR_BETS.length;
+  const leagues = [...new Set(MINOR_BETS.map(b => b.league))].length;
+  document.getElementById('minor-leagues-kpi').textContent = leagues + ' ligas';
+}}
+
+function renderMinorHot() {{
+  document.getElementById('minor-hot-grid').innerHTML = MINOR_HOT.length
+    ? MINOR_HOT.map(b => betCard(b)).join('')
+    : '<div style="color:var(--muted);font-family:var(--mono);padding:20px">Nenhuma hot bet em ligas menores hoje.</div>';
+}}
+
+function renderMinorTable() {{
+  const group  = document.getElementById('minor-filter-group').value;
+  const period = document.getElementById('minor-filter-period').value;
+  const mkt    = document.getElementById('minor-filter-market').value;
+  const minEV  = parseFloat(document.getElementById('minor-filter-ev').value) || 0;
+
+  let bets = MINOR_BETS.filter(b => {{
+    if (group  && b.group !== group)                  return false;
+    if (period && b.period !== period)                return false;
+    if (mkt    && !b.market.includes(mkt))            return false;
+    if ((b.ev_pct||0) < minEV)                        return false;
+    return true;
+  }});
+  bets.sort((a,b) => (b.ev_pct||0) - (a.ev_pct||0));
+
+  const tier_class = {{Elite:'elite', Forte:'forte', Moderada:'moderada'}};
+  const period_badge = p => p === 'HT'
+    ? '<span style="background:rgba(159,110,255,0.15);color:var(--purple);font-family:var(--mono);font-size:9px;padding:2px 5px;border-radius:3px">HT</span>'
+    : '<span style="background:rgba(77,159,255,0.12);color:var(--blue);font-family:var(--mono);font-size:9px;padding:2px 5px;border-radius:3px">FT</span>';
+
+  document.getElementById('minor-bets-tbody').innerHTML = bets.map(b => `
+    <tr>
+      <td><span class="tier-badge ${{tier_class[b.tier]||''}}">${{b.tier_emoji||''}} ${{b.tier}}</span></td>
+      <td><strong>${{b.home_team}}</strong> vs ${{b.away_team}}</td>
+      <td style="color:var(--muted);font-size:10px">${{b.league||'—'}}</td>
+      <td style="color:var(--muted);font-size:10px">${{b.country||'—'}}</td>
+      <td style="color:var(--blue)">${{b.market}}</td>
+      <td>${{period_badge(b.period)}}</td>
+      <td style="color:var(--gold);font-weight:700">${{(b.bet365_odd||0).toFixed(2)}}</td>
+      <td>
+        <div style="color:var(--accent)">${{(b.model_prob*100).toFixed(1)}}%</div>
+        <div class="prob-bar"><div class="prob-fill" style="width:${{b.model_prob*100}}%"></div></div>
+      </td>
+      <td style="color:var(--muted)">${{(b.implied_prob*100).toFixed(1)}}%</td>
+      <td style="color:var(--accent);font-weight:600">+${{(b.ev_pct||0).toFixed(1)}}%</td>
+      <td style="color:var(--purple)">${{(b.kelly_pct||0).toFixed(1)}}%</td>
+      <td style="font-family:var(--mono);font-size:10px;color:var(--muted)">${{(b.mu_home_ft||0).toFixed(2)}}</td>
+      <td style="font-family:var(--mono);font-size:10px;color:var(--muted)">${{(b.mu_away_ft||0).toFixed(2)}}</td>
+    </tr>
+  `).join('') || '<tr><td colspan="13" style="text-align:center;color:var(--muted);padding:24px">Nenhuma aposta com os filtros selecionados.</td></tr>';
+}}
+
+function renderMinorProfiles() {{
+  document.getElementById('minor-profiles-tbody').innerHTML = MINOR_PROF.map(p => `
+    <tr>
+      <td style="font-weight:600">${{p.league||'—'}}</td>
+      <td style="font-family:var(--mono);color:var(--muted)">${{p.n_matches||0}}</td>
+      <td style="font-family:var(--mono)">${{(p.avg_goals_ft||0).toFixed(2)}}</td>
+      <td><span class="${{(p.over_25_ft||0) > 0.55 ? 'green' : ''}}">${{((p.over_25_ft||0)*100).toFixed(1)}}%</span></td>
+      <td><span class="${{(p.btts_ft||0) > 0.50 ? 'green' : ''}}">${{((p.btts_ft||0)*100).toFixed(1)}}%</span></td>
+      <td style="font-family:var(--mono)">${{((p.home_win_rate||0)*100).toFixed(1)}}%</td>
+      <td style="font-family:var(--mono)">${{((p.draw_rate||0)*100).toFixed(1)}}%</td>
+      <td style="font-family:var(--mono)">${{((p.away_win_rate||0)*100).toFixed(1)}}%</td>
+      <td style="font-family:var(--mono)">${{(p.avg_goals_ht||0).toFixed(2)}}</td>
+      <td><span class="${{(p.over_15_ht||0) > 0.30 ? 'green' : ''}}">${{((p.over_15_ht||0)*100).toFixed(1)}}%</span></td>
+    </tr>
+  `).join('') || '<tr><td colspan="10" style="text-align:center;color:var(--muted);padding:20px">Sem dados de ligas menores.</td></tr>';
+}}
+
+renderMinorKPIs();
+renderMinorHot();
+renderMinorTable();
+renderMinorProfiles();
+
 </script>
 </body>
 </html>"""
