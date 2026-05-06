@@ -1,0 +1,161 @@
+# config.yaml — Football Analytics System Configuration
+
+# ─── API Sources ────────────────────────────────────────────────────────────
+apis:
+  # Football-Data.org (free tier: 10 req/min)
+  football_data:
+    base_url: "https://api.football-data.org/v4"
+    key_env: "FOOTBALL_DATA_API_KEY"
+    rate_limit: 10
+
+  # API-Football via RapidAPI
+  api_football:
+    base_url: "https://api-football-v1.p.rapidapi.com/v3"
+    key_env: "API_FOOTBALL_KEY"
+    host: "api-football-v1.p.rapidapi.com"
+    rate_limit: 100
+
+  # The Odds API (odds + movement)
+  odds_api:
+    base_url: "https://api.the-odds-api.com/v4"
+    key_env: "ODDS_API_KEY"
+    bookmaker: "bet365"
+    regions: "eu"
+
+  # OpenWeather (clima)
+  openweather:
+    base_url: "https://api.openweathermap.org/data/2.5"
+    key_env: "OPENWEATHER_KEY"
+
+# ─── Leagues Scope ───────────────────────────────────────────────────────────
+leagues:
+  tier_1:
+    - {name: "Premier League", country: "England", id: 39, football_data_id: "PL"}
+    - {name: "La Liga", country: "Spain", id: 140, football_data_id: "PD"}
+    - {name: "Serie A", country: "Italy", id: 135, football_data_id: "SA"}
+    - {name: "Bundesliga", country: "Germany", id: 78, football_data_id: "BL1"}
+    - {name: "Ligue 1", country: "France", id: 61, football_data_id: "FL1"}
+    - {name: "Brasileirão Série A", country: "Brazil", id: 71}
+    - {name: "Champions League", country: "Europe", id: 2, football_data_id: "CL"}
+    - {name: "Europa League", country: "Europe", id: 3, football_data_id: "EL"}
+
+  tier_2:
+    - {name: "Championship", country: "England", id: 40}
+    - {name: "Segunda División", country: "Spain", id: 141}
+    - {name: "Serie B", country: "Italy", id: 136}
+    - {name: "2. Bundesliga", country: "Germany", id: 79}
+    - {name: "Ligue 2", country: "France", id: 62}
+    - {name: "Brasileirão Série B", country: "Brazil", id: 72}
+    - {name: "Eredivisie", country: "Netherlands", id: 88}
+    - {name: "Primeira Liga", country: "Portugal", id: 94}
+    - {name: "Russian Premier League", country: "Russia", id: 235}
+    - {name: "MLS", country: "USA", id: 253}
+    - {name: "Liga MX", country: "Mexico", id: 262}
+    - {name: "Argentine Primera", country: "Argentina", id: 128}
+
+  tier_3:
+    - {name: "League One", country: "England", id: 41}
+    - {name: "League Two", country: "England", id: 42}
+    - {name: "National League", country: "England", id: 43}
+    - {name: "3. Liga", country: "Germany", id: 80}
+    - {name: "Serie C", country: "Italy", id: 137}
+    - {name: "Scottish Premiership", country: "Scotland", id: 179}
+    - {name: "Belgian First Division", country: "Belgium", id: 144}
+    - {name: "Turkish Süper Lig", country: "Turkey", id: 203}
+    - {name: "Greek Super League", country: "Greece", id: 197}
+    - {name: "J1 League", country: "Japan", id: 98}
+    - {name: "K League", country: "South Korea", id: 292}
+    - {name: "A-League", country: "Australia", id: 188}
+
+  cups:
+    - {name: "FA Cup", country: "England", id: 45}
+    - {name: "Copa del Rey", country: "Spain", id: 143}
+    - {name: "Coppa Italia", country: "Italy", id: 137}
+    - {name: "DFB-Pokal", country: "Germany", id: 81}
+    - {name: "Coupe de France", country: "France", id: 66}
+    - {name: "Copa do Brasil", country: "Brazil", id: 73}
+    - {name: "Conference League", country: "Europe", id: 848}
+
+  womens:
+    - {name: "Women's Super League", country: "England", id: 188}
+    - {name: "Division 1 Féminine", country: "France", id: 105}
+    - {name: "NWSL", country: "USA", id: 254}
+    - {name: "Frauen Bundesliga", country: "Germany", id: 81}
+
+# ─── Player Props Leagues ─────────────────────────────────────────────────────
+player_props_leagues:
+  - "Premier League"
+  - "La Liga"
+  - "Serie A"
+  - "Brasileirão Série A"
+
+player_props_markets:
+  - shots_total
+  - shots_on_target
+  - tackles
+  - fouls_committed
+
+# ─── Value Betting Thresholds ─────────────────────────────────────────────────
+value_betting:
+  min_ev_pct: 8.0          # EV mínimo %
+  min_probability: 0.62    # Prob. mínima estimada
+  min_odds: 1.65           # Odd mínima
+  min_model_convergence: 3 # Mínimo de modelos concordando
+
+  tiers:
+    elite:
+      ev_min: 15.0
+      prob_min: 0.70
+      convergence_min: 5
+      emoji: "🔥"
+      label: "Elite"
+    strong:
+      ev_min: 10.0
+      prob_min: 0.65
+      convergence_min: 4
+      emoji: "⚡"
+      label: "Forte"
+    moderate:
+      ev_min: 8.0
+      prob_min: 0.62
+      convergence_min: 3
+      emoji: "🟡"
+      label: "Moderada"
+
+# ─── Models ──────────────────────────────────────────────────────────────────
+models:
+  monte_carlo_simulations: 10000
+  elo_k_factor: 32
+  elo_initial_rating: 1500
+  glicko_initial_rating: 1500
+  glicko_initial_rd: 350
+  lookback_matches: 15
+  min_matches_for_model: 5
+
+# ─── Markets ─────────────────────────────────────────────────────────────────
+markets:
+  - result_1x2
+  - btts
+  - over_under_05
+  - over_under_15
+  - over_under_25
+  - over_under_35
+  - ht_goals
+  - cards_total
+  - asian_handicap
+  - corners_total
+
+# ─── Paths ───────────────────────────────────────────────────────────────────
+paths:
+  data_raw: "data/raw"
+  data_processed: "data/processed"
+  data_historical: "data/historical"
+  dashboard_output: "docs"
+  models_cache: "data/models_cache"
+
+# ─── Dashboard ───────────────────────────────────────────────────────────────
+dashboard:
+  title: "BetAnalytics Pro"
+  timezone: "America/Sao_Paulo"
+  max_bets_displayed: 50
+  hot_bets_limit: 10
