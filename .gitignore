@@ -1,0 +1,11 @@
+.env
+__pycache__/
+*.pyc
+*.pyo
+.pytest_cache/
+.DS_Store
+data/raw/
+data/models_cache/*.pkl
+data/models_cache/*.json
+venv/
+.venv/
