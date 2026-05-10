@@ -1,4 +1,4 @@
-# src/dashboard/generator.py — Gera HTML do dashboard
+# src/dashboard/generator.py — Gera HTML do dashboard (versão corrigida)
 import json
 from pathlib import Path
 from datetime import datetime
@@ -8,39 +8,47 @@ logger = get_logger("dashboard.generator")
 cfg = load_config()
 
 
+def _j(obj):
+    return json.dumps(obj, ensure_ascii=False, default=str)
+
+
 def generate_dashboard(data: dict) -> str:
-    """Gera o HTML completo do dashboard a partir dos dados."""
-
-    date_str = data.get("date", today_str())
-    generated_at = data.get("generated_at", datetime.now().isoformat())
-    total_fixtures = data.get("total_fixtures", 0)
-    total_value_bets = data.get("total_value_bets", 0)
-    hot_bets = data.get("hot_bets", [])
-    all_bets = data.get("all_value_bets", [])
-    metrics = data.get("metrics", {})
+    date_str        = data.get("date", today_str())
+    generated_at    = data.get("generated_at", datetime.now().isoformat())[:16].replace("T", " ")
+    total_fixtures  = data.get("total_fixtures", 0)
+    total_vb        = data.get("total_value_bets", 0)
+    hot_bets        = data.get("hot_bets", [])
+    all_bets        = data.get("all_value_bets", [])
+    metrics         = data.get("metrics", {})
     league_profiles = data.get("league_profiles", [])
-    recent_results = data.get("recent_results", [])
+    recent_results  = data.get("recent_results", [])
 
-    # Minor leagues data
-    minor = data.get("minor", {})
-    minor_fixtures   = minor.get("minor_fixtures", 0)
-    minor_value_bets = minor.get("minor_value_bets", [])
-    minor_hot_bets   = minor.get("minor_hot_bets", [])
-    minor_by_group   = minor.get("minor_by_group", {})
-    minor_profiles   = minor.get("minor_league_profiles", [])
+    minor           = data.get("minor", {})
+    minor_fixtures  = minor.get("minor_fixtures", 0)
+    minor_vb        = minor.get("minor_value_bets", [])
+    minor_hot       = minor.get("minor_hot_bets", [])
+    minor_by_group  = minor.get("minor_by_group", {})
+    minor_profiles  = minor.get("minor_league_profiles", [])
 
-    # ── Serializar JSON para JS ───────────────────────────────────────────────
-    all_bets_json        = json.dumps(all_bets, ensure_ascii=False, default=str)
-    metrics_json         = json.dumps(metrics, ensure_ascii=False, default=str)
-    league_profiles_json = json.dumps(league_profiles, ensure_ascii=False, default=str)
-    recent_json          = json.dumps(recent_results, ensure_ascii=False, default=str)
-    hot_bets_json        = json.dumps(hot_bets, ensure_ascii=False, default=str)
-    minor_bets_json      = json.dumps(minor_value_bets, ensure_ascii=False, default=str)
-    minor_hot_json       = json.dumps(minor_hot_bets, ensure_ascii=False, default=str)
-    minor_by_group_json  = json.dumps(minor_by_group, ensure_ascii=False, default=str)
-    minor_profiles_json  = json.dumps(minor_profiles, ensure_ascii=False, default=str)
+    # ── embed all JS data as plain JSON strings ──────────────────────────────
+    D = {
+        "ALL_BETS":        all_bets,
+        "HOT_BETS":        hot_bets,
+        "METRICS":         metrics,
+        "LEAGUES":         league_profiles,
+        "RECENT":          recent_results,
+        "MINOR_BETS":      minor_vb,
+        "MINOR_HOT":       minor_hot,
+        "MINOR_GROUPS":    minor_by_group,
+        "MINOR_PROF":      minor_profiles,
+        "MINOR_FIX":       minor_fixtures,
+        "TOTAL_FIXTURES":  total_fixtures,
+        "TOTAL_VB":        total_vb,
+        "DATE":            date_str,
+    }
+    data_block = "\n".join(f"const {k} = {_j(v)};" for k, v in D.items())
 
-    html = f"""<!DOCTYPE html>
+    return f"""<!DOCTYPE html>
 <html lang="pt-BR">
 <head>
 <meta charset="UTF-8">
@@ -50,871 +58,535 @@ def generate_dashboard(data: dict) -> str:
 <link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;600;700;800&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet">
 <style>
 :root {{
-  --bg: #08090d;
-  --surface: #0f1117;
-  --surface2: #161820;
-  --border: #1e2030;
-  --border2: #2a2d3e;
-  --accent: #00e5a0;
-  --accent2: #005f42;
-  --gold: #f5c842;
-  --red: #ff4d6d;
-  --blue: #4d9fff;
-  --purple: #9f6eff;
-  --text: #e8eaf6;
-  --muted: #6b7280;
-  --mono: 'IBM Plex Mono', monospace;
-  --sans: 'Syne', sans-serif;
+  --bg:#08090d;--surface:#0f1117;--surface2:#161820;
+  --border:#1e2030;--border2:#2a2d3e;
+  --accent:#00e5a0;--accent2:#005f42;
+  --gold:#f5c842;--red:#ff4d6d;--blue:#4d9fff;--purple:#9f6eff;
+  --text:#e8eaf6;--muted:#6b7280;
+  --mono:'IBM Plex Mono',monospace;--sans:'Syne',sans-serif;
 }}
-*, *::before, *::after {{ box-sizing: border-box; margin: 0; padding: 0; }}
-html {{ scroll-behavior: smooth; }}
-body {{
-  background: var(--bg);
-  color: var(--text);
-  font-family: var(--sans);
-  font-size: 14px;
-  line-height: 1.6;
-  min-height: 100vh;
-}}
+*,*::before,*::after{{box-sizing:border-box;margin:0;padding:0}}
+html{{scroll-behavior:smooth}}
+body{{background:var(--bg);color:var(--text);font-family:var(--sans);font-size:14px;line-height:1.6;min-height:100vh}}
+::-webkit-scrollbar{{width:4px;height:4px}}
+::-webkit-scrollbar-track{{background:var(--bg)}}
+::-webkit-scrollbar-thumb{{background:var(--border2);border-radius:2px}}
 
-/* ── SCROLLBAR ─────────────────────────────────────── */
-::-webkit-scrollbar {{ width: 4px; height: 4px; }}
-::-webkit-scrollbar-track {{ background: var(--bg); }}
-::-webkit-scrollbar-thumb {{ background: var(--border2); border-radius: 2px; }}
+header{{position:sticky;top:0;z-index:100;background:rgba(8,9,13,.96);backdrop-filter:blur(12px);border-bottom:1px solid var(--border);padding:14px 24px;display:flex;align-items:center;justify-content:space-between}}
+.logo{{font-size:20px;font-weight:800;letter-spacing:-.5px;display:flex;align-items:center;gap:10px}}
+.logo-dot{{width:8px;height:8px;border-radius:50%;background:var(--accent);animation:pulse 2s infinite}}
+@keyframes pulse{{0%,100%{{opacity:1;transform:scale(1)}}50%{{opacity:.5;transform:scale(1.4)}}}}
+.header-meta{{font-family:var(--mono);font-size:11px;color:var(--muted);text-align:right}}
+.live-badge{{display:inline-flex;align-items:center;gap:5px;background:var(--accent2);color:var(--accent);font-family:var(--mono);font-size:10px;font-weight:600;padding:3px 8px;border-radius:4px;border:1px solid var(--accent)}}
 
-/* ── HEADER ────────────────────────────────────────── */
-header {{
-  position: sticky; top: 0; z-index: 100;
-  background: rgba(8,9,13,0.96);
-  backdrop-filter: blur(12px);
-  border-bottom: 1px solid var(--border);
-  padding: 14px 24px;
-  display: flex; align-items: center; justify-content: space-between;
-}}
-.logo {{
-  font-size: 20px; font-weight: 800; letter-spacing: -0.5px;
-  display: flex; align-items: center; gap: 10px;
-}}
-.logo-dot {{ width: 8px; height: 8px; border-radius: 50%; background: var(--accent); animation: pulse 2s infinite; }}
-@keyframes pulse {{ 0%,100% {{ opacity:1; transform: scale(1); }} 50% {{ opacity:0.5; transform: scale(1.4); }} }}
-.header-meta {{ font-family: var(--mono); font-size: 11px; color: var(--muted); text-align: right; }}
-.live-badge {{
-  display: inline-flex; align-items: center; gap: 5px;
-  background: var(--accent2); color: var(--accent);
-  font-family: var(--mono); font-size: 10px; font-weight: 600;
-  padding: 3px 8px; border-radius: 4px; border: 1px solid var(--accent);
-}}
+nav{{display:flex;gap:2px;padding:10px 24px;background:var(--surface);border-bottom:1px solid var(--border);overflow-x:auto}}
+.nb{{background:none;border:1px solid transparent;color:var(--muted);font-family:var(--sans);font-size:12px;font-weight:600;padding:6px 14px;border-radius:6px;cursor:pointer;white-space:nowrap;transition:all .15s;letter-spacing:.3px}}
+.nb:hover{{color:var(--text);border-color:var(--border2)}}
+.nb.active{{background:var(--border2);color:var(--accent);border-color:var(--accent)}}
 
-/* ── NAV ───────────────────────────────────────────── */
-nav {{
-  display: flex; gap: 2px;
-  padding: 12px 24px;
-  background: var(--surface);
-  border-bottom: 1px solid var(--border);
-  overflow-x: auto;
-}}
-.nav-btn {{
-  background: none; border: 1px solid transparent;
-  color: var(--muted); font-family: var(--sans); font-size: 12px; font-weight: 600;
-  padding: 6px 14px; border-radius: 6px; cursor: pointer;
-  white-space: nowrap; transition: all 0.15s;
-  letter-spacing: 0.3px;
-}}
-.nav-btn:hover {{ color: var(--text); border-color: var(--border2); }}
-.nav-btn.active {{ background: var(--border2); color: var(--accent); border-color: var(--accent); }}
+main{{max-width:1400px;margin:0 auto;padding:24px}}
+.section{{display:none}}.section.active{{display:block}}
 
-/* ── LAYOUT ────────────────────────────────────────── */
-main {{ max-width: 1400px; margin: 0 auto; padding: 24px; }}
-.section {{ display: none; }}
-.section.active {{ display: block; }}
+.kpi-grid{{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:12px;margin-bottom:24px}}
+.kpi{{background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:16px;transition:border-color .2s}}
+.kpi:hover{{border-color:var(--border2)}}
+.kpi-label{{font-family:var(--mono);font-size:10px;color:var(--muted);letter-spacing:1px;text-transform:uppercase;margin-bottom:6px}}
+.kpi-value{{font-size:26px;font-weight:800;line-height:1}}
+.kpi-sub{{font-family:var(--mono);font-size:10px;color:var(--muted);margin-top:4px}}
+.green{{color:var(--accent)}}.red{{color:var(--red)}}.gold{{color:var(--gold)}}.blue{{color:var(--blue)}}
 
-/* ── KPI GRID ──────────────────────────────────────── */
-.kpi-grid {{
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
-  gap: 12px; margin-bottom: 24px;
-}}
-.kpi {{
-  background: var(--surface);
-  border: 1px solid var(--border);
-  border-radius: 10px; padding: 16px;
-  transition: border-color 0.2s;
-}}
-.kpi:hover {{ border-color: var(--border2); }}
-.kpi-label {{ font-family: var(--mono); font-size: 10px; color: var(--muted); letter-spacing: 1px; text-transform: uppercase; margin-bottom: 6px; }}
-.kpi-value {{ font-size: 26px; font-weight: 800; line-height: 1; }}
-.kpi-sub {{ font-family: var(--mono); font-size: 10px; color: var(--muted); margin-top: 4px; }}
-.green {{ color: var(--accent); }}
-.red {{ color: var(--red); }}
-.gold {{ color: var(--gold); }}
-.blue {{ color: var(--blue); }}
+.card{{background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:20px;margin-bottom:16px}}
+.card-title{{font-size:11px;font-family:var(--mono);font-weight:600;color:var(--muted);letter-spacing:1.5px;text-transform:uppercase;margin-bottom:16px;display:flex;align-items:center;gap:8px}}
+.card-title::before{{content:'';width:3px;height:12px;background:var(--accent);border-radius:2px}}
 
-/* ── CARDS ─────────────────────────────────────────── */
-.card {{
-  background: var(--surface);
-  border: 1px solid var(--border);
-  border-radius: 12px; padding: 20px;
-  margin-bottom: 16px;
-}}
-.card-title {{
-  font-size: 11px; font-family: var(--mono); font-weight: 600;
-  color: var(--muted); letter-spacing: 1.5px; text-transform: uppercase;
-  margin-bottom: 16px; display: flex; align-items: center; gap: 8px;
-}}
-.card-title::before {{ content: ''; width: 3px; height: 12px; background: var(--accent); border-radius: 2px; }}
+.hbg{{display:grid;grid-template-columns:repeat(auto-fill,minmax(320px,1fr));gap:12px}}
+.bc{{background:var(--surface2);border:1px solid var(--border);border-radius:10px;padding:16px;position:relative;overflow:hidden;transition:all .15s}}
+.bc::before{{content:'';position:absolute;top:0;left:0;right:0;height:2px}}
+.bc.elite::before{{background:linear-gradient(90deg,var(--gold),#ff9800)}}
+.bc.forte::before{{background:linear-gradient(90deg,var(--accent),var(--blue))}}
+.bc.moderada::before{{background:linear-gradient(90deg,var(--purple),var(--accent))}}
+.bc:hover{{border-color:var(--border2);transform:translateY(-1px)}}
+.bh{{display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:10px}}
+.bm-name{{font-size:13px;font-weight:700}}
+.bm-league{{font-size:10px;color:var(--muted);font-family:var(--mono);margin-top:2px}}
+.tb{{font-size:10px;font-weight:700;font-family:var(--mono);padding:3px 8px;border-radius:4px;white-space:nowrap}}
+.tb.elite{{background:rgba(245,200,66,.15);color:var(--gold);border:1px solid rgba(245,200,66,.3)}}
+.tb.forte{{background:rgba(0,229,160,.1);color:var(--accent);border:1px solid rgba(0,229,160,.3)}}
+.tb.moderada{{background:rgba(159,110,255,.1);color:var(--purple);border:1px solid rgba(159,110,255,.3)}}
+.bm-mkt{{font-family:var(--mono);font-size:11px;color:var(--blue);background:rgba(77,159,255,.08);padding:4px 8px;border-radius:4px;margin-bottom:12px;display:inline-block}}
+.bs{{display:grid;grid-template-columns:repeat(3,1fr);gap:8px}}
+.bsv{{font-family:var(--mono);font-size:15px;font-weight:600}}
+.bsl{{font-size:9px;color:var(--muted);text-transform:uppercase;letter-spacing:.5px}}
+.bf{{margin-top:12px;padding-top:10px;border-top:1px solid var(--border);display:flex;justify-content:space-between;align-items:center}}
+.bodd{{font-family:var(--mono);font-size:18px;font-weight:700;color:var(--gold)}}
 
-/* ── HOT BETS ──────────────────────────────────────── */
-.hot-bets-grid {{
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(340px, 1fr));
-  gap: 12px;
-}}
-.bet-card {{
-  background: var(--surface2);
-  border: 1px solid var(--border);
-  border-radius: 10px; padding: 16px;
-  cursor: pointer; transition: all 0.15s;
-  position: relative; overflow: hidden;
-}}
-.bet-card::before {{
-  content: '';
-  position: absolute; top: 0; left: 0; right: 0; height: 2px;
-}}
-.bet-card.elite::before {{ background: linear-gradient(90deg, var(--gold), #ff9800); }}
-.bet-card.forte::before {{ background: linear-gradient(90deg, var(--accent), var(--blue)); }}
-.bet-card.moderada::before {{ background: linear-gradient(90deg, var(--purple), var(--accent)); }}
-.bet-card:hover {{ border-color: var(--border2); transform: translateY(-1px); }}
+.tw{{overflow-x:auto}}
+table{{width:100%;border-collapse:collapse;font-size:12px}}
+th{{font-family:var(--mono);font-size:9px;font-weight:600;color:var(--muted);text-transform:uppercase;letter-spacing:1px;text-align:left;padding:8px 12px;border-bottom:1px solid var(--border);white-space:nowrap}}
+td{{padding:10px 12px;border-bottom:1px solid var(--border);font-family:var(--mono);font-size:11px}}
+tr:hover td{{background:rgba(255,255,255,.02)}}
+.badge{{display:inline-block;padding:2px 6px;border-radius:3px;font-size:10px;font-weight:600}}
+.badge-green{{background:rgba(0,229,160,.12);color:var(--accent)}}
+.badge-red{{background:rgba(255,77,109,.12);color:var(--red)}}
+.badge-pending{{background:rgba(107,114,128,.2);color:var(--muted)}}
 
-.bet-header {{ display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 10px; }}
-.bet-match {{ font-size: 13px; font-weight: 700; }}
-.bet-league {{ font-size: 10px; color: var(--muted); font-family: var(--mono); margin-top: 2px; }}
-.tier-badge {{
-  font-size: 10px; font-weight: 700; font-family: var(--mono);
-  padding: 3px 8px; border-radius: 4px; white-space: nowrap;
-}}
-.tier-badge.elite {{ background: rgba(245,200,66,0.15); color: var(--gold); border: 1px solid rgba(245,200,66,0.3); }}
-.tier-badge.forte {{ background: rgba(0,229,160,0.1); color: var(--accent); border: 1px solid rgba(0,229,160,0.3); }}
-.tier-badge.moderada {{ background: rgba(159,110,255,0.1); color: var(--purple); border: 1px solid rgba(159,110,255,0.3); }}
+.filters{{display:flex;gap:10px;flex-wrap:wrap;margin-bottom:16px;align-items:center}}
+.fl{{font-family:var(--mono);font-size:10px;color:var(--muted);text-transform:uppercase}}
+select,input{{background:var(--surface2);border:1px solid var(--border2);color:var(--text);font-family:var(--mono);font-size:11px;padding:6px 10px;border-radius:6px;outline:none}}
+select:focus,input:focus{{border-color:var(--accent)}}
 
-.bet-market {{
-  font-family: var(--mono); font-size: 11px; color: var(--blue);
-  background: rgba(77,159,255,0.08); padding: 4px 8px;
-  border-radius: 4px; margin-bottom: 12px; display: inline-block;
-}}
-.bet-stats {{ display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; }}
-.bet-stat {{ text-align: center; }}
-.bet-stat-val {{ font-family: var(--mono); font-size: 15px; font-weight: 600; }}
-.bet-stat-label {{ font-size: 9px; color: var(--muted); text-transform: uppercase; letter-spacing: 0.5px; }}
-.bet-footer {{ margin-top: 12px; padding-top: 10px; border-top: 1px solid var(--border); display: flex; justify-content: space-between; align-items: center; }}
-.bet-odd {{ font-family: var(--mono); font-size: 18px; font-weight: 700; color: var(--gold); }}
-.bet-ev {{ font-family: var(--mono); font-size: 12px; color: var(--accent); }}
-.conv-dots {{ display: flex; gap: 3px; }}
-.conv-dot {{ width: 6px; height: 6px; border-radius: 50%; }}
-.conv-dot.filled {{ background: var(--accent); }}
-.conv-dot.empty {{ background: var(--border2); }}
+.lg-grid{{display:grid;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));gap:10px}}
+.lgc{{background:var(--surface2);border:1px solid var(--border);border-radius:8px;padding:14px}}
+.lgn{{font-weight:700;font-size:13px;margin-bottom:10px}}
+.lgs{{display:grid;grid-template-columns:1fr 1fr;gap:6px}}
+.ls{{font-family:var(--mono);font-size:10px}}
+.ls-l{{color:var(--muted)}}.ls-v{{color:var(--text);font-weight:600}}
 
-/* ── TABLE ─────────────────────────────────────────── */
-.table-wrap {{ overflow-x: auto; }}
-table {{ width: 100%; border-collapse: collapse; font-size: 12px; }}
-th {{
-  font-family: var(--mono); font-size: 9px; font-weight: 600;
-  color: var(--muted); text-transform: uppercase; letter-spacing: 1px;
-  text-align: left; padding: 8px 12px;
-  border-bottom: 1px solid var(--border);
-  white-space: nowrap;
-}}
-td {{
-  padding: 10px 12px; border-bottom: 1px solid var(--border);
-  font-family: var(--mono); font-size: 11px;
-}}
-tr:hover td {{ background: rgba(255,255,255,0.02); }}
-.badge {{
-  display: inline-block; padding: 2px 6px; border-radius: 3px;
-  font-size: 10px; font-weight: 600;
-}}
-.badge-green {{ background: rgba(0,229,160,0.12); color: var(--accent); }}
-.badge-red {{ background: rgba(255,77,109,0.12); color: var(--red); }}
-.badge-pending {{ background: rgba(107,114,128,0.2); color: var(--muted); }}
+.pb{{height:3px;background:var(--border);border-radius:2px;margin-top:4px;overflow:hidden}}
+.pf{{height:100%;border-radius:2px;background:var(--accent);transition:width .8s ease}}
 
-/* ── FILTERS ───────────────────────────────────────── */
-.filters {{ display: flex; gap: 10px; flex-wrap: wrap; margin-bottom: 16px; align-items: center; }}
-.filter-group {{ display: flex; align-items: center; gap: 6px; }}
-.filter-label {{ font-family: var(--mono); font-size: 10px; color: var(--muted); text-transform: uppercase; }}
-select, input {{
-  background: var(--surface2); border: 1px solid var(--border2);
-  color: var(--text); font-family: var(--mono); font-size: 11px;
-  padding: 6px 10px; border-radius: 6px; outline: none;
-}}
-select:focus, input:focus {{ border-color: var(--accent); }}
+.warn-box{{background:rgba(245,200,66,.06);border:1px solid rgba(245,200,66,.2);border-radius:8px;padding:12px 16px;margin-bottom:20px;font-family:var(--mono);font-size:11px;color:var(--gold)}}
 
-/* ── LEAGUE PROFILES ───────────────────────────────── */
-.league-grid {{
-  display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
-  gap: 10px;
-}}
-.league-card {{
-  background: var(--surface2); border: 1px solid var(--border);
-  border-radius: 8px; padding: 14px;
-}}
-.league-name {{ font-weight: 700; font-size: 13px; margin-bottom: 10px; }}
-.league-stats {{ display: grid; grid-template-columns: 1fr 1fr; gap: 6px; }}
-.ls {{ font-family: var(--mono); font-size: 10px; }}
-.ls-label {{ color: var(--muted); }}
-.ls-val {{ color: var(--text); font-weight: 600; }}
-
-/* ── PROGRESS BAR ──────────────────────────────────── */
-.prob-bar {{ height: 3px; background: var(--border); border-radius: 2px; margin-top: 4px; overflow: hidden; }}
-.prob-fill {{ height: 100%; border-radius: 2px; background: var(--accent); transition: width 0.8s ease; }}
-
-/* ── FOOTER ────────────────────────────────────────── */
-footer {{
-  text-align: center; padding: 24px; margin-top: 40px;
-  border-top: 1px solid var(--border);
-  font-family: var(--mono); font-size: 10px; color: var(--muted);
-}}
-.disclaimer {{
-  max-width: 600px; margin: 0 auto;
-  line-height: 1.8;
-}}
-
-/* ── ROI CHART ─────────────────────────────────────── */
-#roi-chart {{ height: 200px; position: relative; }}
+footer{{text-align:center;padding:24px;margin-top:40px;border-top:1px solid var(--border);font-family:var(--mono);font-size:10px;color:var(--muted)}}
+.disc{{max-width:600px;margin:0 auto;line-height:1.8}}
 </style>
 </head>
 <body>
 
 <header>
-  <div class="logo">
-    <div class="logo-dot"></div>
-    BetAnalytics<span style="color:var(--accent)">Pro</span>
-  </div>
+  <div class="logo"><div class="logo-dot"></div>BetAnalytics<span style="color:var(--accent)">Pro</span></div>
   <div class="header-meta">
     <div style="margin-bottom:4px"><span class="live-badge">⬤ LIVE</span> Bet365 Value Tracker</div>
-    <div>Atualizado: {date_str} · {generated_at[:16].replace('T',' ')}</div>
+    <div>Atualizado: {date_str} · {generated_at}</div>
   </div>
 </header>
 
 <nav>
-  <button class="nav-btn active" onclick="showSection('dashboard')">📊 Dashboard</button>
-  <button class="nav-btn" onclick="showSection('hot-bets')">🔥 Hot Bets</button>
-  <button class="nav-btn" onclick="showSection('all-bets')">📋 Todas Apostas</button>
-  <button class="nav-btn" onclick="showSection('tracking')">📈 Tracking</button>
-  <button class="nav-btn" onclick="showSection('leagues')">🌍 Ligas</button>
-  <button class="nav-btn" onclick="showSection('minor')">🔍 Ligas Menores</button>
+  <button class="nb active" onclick="nav(this,'s-dashboard')">📊 Dashboard</button>
+  <button class="nb" onclick="nav(this,'s-hotbets')">🔥 Hot Bets</button>
+  <button class="nb" onclick="nav(this,'s-all')">📋 Todas Apostas</button>
+  <button class="nb" onclick="nav(this,'s-tracking')">📈 Tracking</button>
+  <button class="nb" onclick="nav(this,'s-leagues')">🌍 Ligas</button>
+  <button class="nb" onclick="nav(this,'s-minor')">🔍 Ligas Menores</button>
 </nav>
 
 <main>
 
-<!-- ══════════════════════════════════════════════════ -->
-<!-- SECTION: DASHBOARD                                -->
-<!-- ══════════════════════════════════════════════════ -->
-<div id="dashboard" class="section active">
-
-  <div class="kpi-grid" id="kpi-grid">
-    <!-- populated by JS -->
-  </div>
-
+<!-- ═══════════════ DASHBOARD ═══════════════ -->
+<div id="s-dashboard" class="section active">
+  <div class="kpi-grid" id="kpi-main"></div>
   <div class="card">
     <div class="card-title">🔥 Hot Bets do Dia</div>
-    <div class="hot-bets-grid" id="hot-bets-preview">
-      <!-- populated by JS -->
-    </div>
+    <div class="hbg" id="hbg-preview"></div>
   </div>
-
-  <div style="display:grid; grid-template-columns:1fr 1fr; gap:16px;">
-    <div class="card">
-      <div class="card-title">📈 Performance 30 dias</div>
-      <div id="metrics-detail"><!-- JS --></div>
-    </div>
-    <div class="card">
-      <div class="card-title">🎯 Por Tier</div>
-      <div id="tier-breakdown"><!-- JS --></div>
-    </div>
-  </div>
-
-</div>
-
-<!-- ══════════════════════════════════════════════════ -->
-<!-- SECTION: HOT BETS                                -->
-<!-- ══════════════════════════════════════════════════ -->
-<div id="hot-bets" class="section">
-  <div class="card">
-    <div class="card-title">🔥 Apostas de Alto Valor</div>
-    <div class="hot-bets-grid" id="hot-bets-full">
-      <!-- populated by JS -->
-    </div>
+  <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px">
+    <div class="card"><div class="card-title">📈 Performance 30d</div><div id="metrics-detail"></div></div>
+    <div class="card"><div class="card-title">🎯 Por Tier</div><div id="tier-detail"></div></div>
   </div>
 </div>
 
-<!-- ══════════════════════════════════════════════════ -->
-<!-- SECTION: TODAS APOSTAS                           -->
-<!-- ══════════════════════════════════════════════════ -->
-<div id="all-bets" class="section">
+<!-- ═══════════════ HOT BETS ═══════════════ -->
+<div id="s-hotbets" class="section">
+  <div class="card"><div class="card-title">🔥 Apostas de Alto Valor</div><div class="hbg" id="hbg-full"></div></div>
+</div>
+
+<!-- ═══════════════ TODAS APOSTAS ═══════════════ -->
+<div id="s-all" class="section">
   <div class="card">
     <div class="card-title">📋 Ranking de Valor</div>
     <div class="filters">
-      <div class="filter-group">
-        <span class="filter-label">Liga</span>
-        <select id="filter-league" onchange="renderTable()">
-          <option value="">Todas</option>
-        </select>
-      </div>
-      <div class="filter-group">
-        <span class="filter-label">Mercado</span>
-        <select id="filter-market" onchange="renderTable()">
-          <option value="">Todos</option>
-        </select>
-      </div>
-      <div class="filter-group">
-        <span class="filter-label">Tier</span>
-        <select id="filter-tier" onchange="renderTable()">
-          <option value="">Todos</option>
-          <option value="Elite">🔥 Elite</option>
-          <option value="Forte">⚡ Forte</option>
-          <option value="Moderada">🟡 Moderada</option>
-        </select>
-      </div>
-      <div class="filter-group">
-        <span class="filter-label">Min EV%</span>
-        <input type="number" id="filter-ev" value="0" min="0" max="50" onchange="renderTable()" style="width:60px">
-      </div>
+      <div style="display:flex;align-items:center;gap:6px"><span class="fl">Liga</span><select id="f-league" onchange="renderTable()"><option value="">Todas</option></select></div>
+      <div style="display:flex;align-items:center;gap:6px"><span class="fl">Mercado</span><select id="f-market" onchange="renderTable()"><option value="">Todos</option></select></div>
+      <div style="display:flex;align-items:center;gap:6px"><span class="fl">Tier</span>
+        <select id="f-tier" onchange="renderTable()"><option value="">Todos</option><option>Elite</option><option>Forte</option><option>Moderada</option></select></div>
+      <div style="display:flex;align-items:center;gap:6px"><span class="fl">Min EV%</span><input type="number" id="f-ev" value="0" min="0" max="50" onchange="renderTable()" style="width:60px"></div>
     </div>
-    <div class="table-wrap">
-      <table id="bets-table">
-        <thead>
-          <tr>
-            <th>Tier</th><th>Jogo</th><th>Liga</th><th>Mercado</th>
-            <th>Odd</th><th>Prob Modelo</th><th>Prob Implícita</th>
-            <th>EV%</th><th>Kelly%</th><th>Convergência</th>
-          </tr>
-        </thead>
-        <tbody id="bets-tbody"></tbody>
-      </table>
-    </div>
+    <div class="tw"><table><thead><tr>
+      <th>Tier</th><th>Jogo</th><th>Liga</th><th>Mercado</th>
+      <th>Odd</th><th>Prob Modelo</th><th>Prob Implícita</th><th>EV%</th><th>Kelly%</th><th>Conv.</th>
+    </tr></thead><tbody id="all-tbody"></tbody></table></div>
   </div>
 </div>
 
-<!-- ══════════════════════════════════════════════════ -->
-<!-- SECTION: TRACKING                                -->
-<!-- ══════════════════════════════════════════════════ -->
-<div id="tracking" class="section">
+<!-- ═══════════════ TRACKING ═══════════════ -->
+<div id="s-tracking" class="section">
   <div class="card">
-    <div class="card-title">📋 Histórico de Resultados</div>
-    <div class="table-wrap">
-      <table>
-        <thead>
-          <tr>
-            <th>Data</th><th>Jogo</th><th>Mercado</th><th>Odd</th>
-            <th>EV%</th><th>Tier</th><th>Resultado</th><th>P/L</th><th>ROI%</th><th>CLV</th>
-          </tr>
-        </thead>
-        <tbody id="tracking-tbody"><!-- JS --></tbody>
-      </table>
-    </div>
+    <div class="card-title">📋 Histórico</div>
+    <div class="tw"><table><thead><tr>
+      <th>Data</th><th>Jogo</th><th>Mercado</th><th>Odd</th><th>EV%</th><th>Tier</th><th>Resultado</th><th>P/L</th><th>ROI%</th><th>CLV</th>
+    </tr></thead><tbody id="track-tbody"></tbody></table></div>
   </div>
 </div>
 
-<!-- ══════════════════════════════════════════════════ -->
-<!-- SECTION: LEAGUES                                 -->
-<!-- ══════════════════════════════════════════════════ -->
-<div id="leagues" class="section">
-  <div class="card">
-    <div class="card-title">🌍 Perfil das Ligas</div>
-    <div class="league-grid" id="league-grid"><!-- JS --></div>
-  </div>
+<!-- ═══════════════ LIGAS ═══════════════ -->
+<div id="s-leagues" class="section">
+  <div class="card"><div class="card-title">🌍 Perfil das Ligas</div><div class="lg-grid" id="lg-grid"></div></div>
 </div>
 
+<!-- ═══════════════ LIGAS MENORES ═══════════════ -->
+<div id="s-minor" class="section">
 
-<!-- ══════════════════════════════════════════════════ -->
-<!-- SECTION: LIGAS MENORES                           -->
-<!-- ══════════════════════════════════════════════════ -->
-<div id="minor" class="section">
-
-  <!-- KPIs menores -->
-  <div class="kpi-grid" style="margin-bottom:20px">
-    <div class="kpi">
-      <div class="kpi-label">Fixtures Menores</div>
-      <div class="kpi-value blue" id="minor-fixtures-kpi">—</div>
-      <div class="kpi-sub">jogos hoje</div>
-    </div>
-    <div class="kpi">
-      <div class="kpi-label">Value Bets</div>
-      <div class="kpi-value gold" id="minor-bets-kpi">—</div>
-      <div class="kpi-sub">EV > 10% ligas menores</div>
-    </div>
-    <div class="kpi">
-      <div class="kpi-label">Mercados</div>
-      <div class="kpi-value green">3</div>
-      <div class="kpi-sub">1X2 · Over FT · Over HT</div>
-    </div>
-    <div class="kpi">
-      <div class="kpi-label">Cobertura</div>
-      <div class="kpi-value" style="color:var(--purple)" id="minor-leagues-kpi">—</div>
-      <div class="kpi-sub">ligas monitoradas</div>
-    </div>
+  <div class="kpi-grid">
+    <div class="kpi"><div class="kpi-label">Fixtures Menores</div><div class="kpi-value blue" id="m-fix-kpi">—</div><div class="kpi-sub">jogos hoje</div></div>
+    <div class="kpi"><div class="kpi-label">Value Bets</div><div class="kpi-value gold" id="m-vb-kpi">—</div><div class="kpi-sub">EV &gt; 10%</div></div>
+    <div class="kpi"><div class="kpi-label">Mercados</div><div class="kpi-value green">3</div><div class="kpi-sub">1X2 · Over FT · Over HT</div></div>
+    <div class="kpi"><div class="kpi-label">Cobertura</div><div class="kpi-value" style="color:var(--purple)" id="m-lg-kpi">—</div><div class="kpi-sub">ligas monitoradas</div></div>
   </div>
 
-  <!-- Aviso de qualidade de dados -->
-  <div style="background:rgba(245,200,66,0.06);border:1px solid rgba(245,200,66,0.2);border-radius:8px;padding:12px 16px;margin-bottom:20px;font-family:var(--mono);font-size:11px;color:var(--gold)">
-    ⚠️ <strong>Ligas menores:</strong> modelo usa Bayesian shrinkage com dados históricos limitados.
-    Threshold de EV aumentado para +10% (vs 8% padrão). Valide sempre com múltiplas fontes.
-  </div>
+  <div class="warn-box">⚠️ <strong>Ligas menores:</strong> modelo usa Bayesian shrinkage com dados históricos limitados. Threshold de EV aumentado para +10% (vs 8% padrão). Valide sempre com múltiplas fontes.</div>
 
-  <!-- Hot bets menores -->
   <div class="card">
     <div class="card-title">🔍 Melhores Apostas — Ligas Menores</div>
-    <div class="hot-bets-grid" id="minor-hot-grid"><!-- JS --></div>
+    <div class="hbg" id="m-hot-grid"></div>
   </div>
 
-  <!-- Filtros -->
   <div class="card" style="margin-top:16px">
     <div class="card-title">📋 Todas as Apostas — Ligas Menores</div>
     <div class="filters">
-      <div class="filter-group">
-        <span class="filter-label">Grupo</span>
-        <select id="minor-filter-group" onchange="renderMinorTable()">
+      <div style="display:flex;align-items:center;gap:6px"><span class="fl">Grupo</span>
+        <select id="mf-group" onchange="renderMinorTable()">
           <option value="">Todos</option>
           <option value="minor_europe">🌍 Europa</option>
           <option value="minor_oceania">🌏 Oceania</option>
           <option value="minor_americas">🌎 Américas</option>
           <option value="minor_asia">🌏 Ásia</option>
           <option value="minor_africa">🌍 África</option>
+          <option value="tier_3">⚽ Tier 3</option>
         </select>
       </div>
-      <div class="filter-group">
-        <span class="filter-label">Período</span>
-        <select id="minor-filter-period" onchange="renderMinorTable()">
-          <option value="">FT e HT</option>
-          <option value="FT">Full Time</option>
-          <option value="HT">Half Time</option>
+      <div style="display:flex;align-items:center;gap:6px"><span class="fl">Período</span>
+        <select id="mf-period" onchange="renderMinorTable()">
+          <option value="">FT e HT</option><option value="FT">Full Time</option><option value="HT">Half Time</option>
         </select>
       </div>
-      <div class="filter-group">
-        <span class="filter-label">Mercado</span>
-        <select id="minor-filter-market" onchange="renderMinorTable()">
-          <option value="">Todos</option>
-          <option value="1X2">1X2</option>
-          <option value="Over">Over</option>
-          <option value="Under">Under</option>
+      <div style="display:flex;align-items:center;gap:6px"><span class="fl">Mercado</span>
+        <select id="mf-mkt" onchange="renderMinorTable()">
+          <option value="">Todos</option><option value="1X2">1X2</option><option value="Over">Over</option><option value="Under">Under</option>
         </select>
       </div>
-      <div class="filter-group">
-        <span class="filter-label">Min EV%</span>
-        <input type="number" id="minor-filter-ev" value="0" min="0" max="50" onchange="renderMinorTable()" style="width:60px">
+      <div style="display:flex;align-items:center;gap:6px"><span class="fl">Tier</span>
+        <select id="mf-tier" onchange="renderMinorTable()">
+          <option value="">Todos</option><option>Elite</option><option>Forte</option><option>Moderada</option>
+        </select>
+      </div>
+      <div style="display:flex;align-items:center;gap:6px"><span class="fl">Min EV%</span>
+        <input type="number" id="mf-ev" value="0" min="0" max="50" onchange="renderMinorTable()" style="width:60px">
       </div>
     </div>
-    <div class="table-wrap">
-      <table>
-        <thead>
-          <tr>
-            <th>Tier</th><th>Jogo</th><th>Liga</th><th>País</th>
-            <th>Mercado</th><th>Per.</th>
-            <th>Odd</th><th>Prob. Modelo</th><th>Prob. Implícita</th>
-            <th>EV%</th><th>Kelly%</th>
-            <th>λ Casa</th><th>λ Fora</th>
-          </tr>
-        </thead>
-        <tbody id="minor-bets-tbody"></tbody>
-      </table>
+    <div class="tw">
+      <table><thead><tr>
+        <th>Tier</th><th>Jogo</th><th>Liga</th><th>País</th><th>Mercado</th><th>Per.</th>
+        <th>Odd</th><th>Prob. Modelo</th><th>Prob. Implícita</th><th>EV%</th><th>Kelly%</th><th>λ Casa</th><th>λ Fora</th>
+      </tr></thead><tbody id="m-tbody"></tbody></table>
     </div>
   </div>
 
-  <!-- Perfil das ligas menores -->
   <div class="card" style="margin-top:16px">
-    <div class="card-title">📊 Perfil das Ligas Menores Analisadas</div>
-    <div class="table-wrap">
-      <table>
-        <thead>
-          <tr>
-            <th>Liga</th><th>Jogos</th>
-            <th>Média Gols FT</th><th>Over 2.5%</th><th>BTTS%</th>
-            <th>Casa%</th><th>Empate%</th><th>Fora%</th>
-            <th>Média Gols HT</th><th>Over 1.5 HT%</th>
-          </tr>
-        </thead>
-        <tbody id="minor-profiles-tbody"></tbody>
-      </table>
-    </div>
+    <div class="card-title">📊 Perfil das Ligas Menores</div>
+    <div class="tw"><table><thead><tr>
+      <th>Liga</th><th>Jogos</th><th>Média Gols FT</th><th>Over 2.5%</th><th>BTTS%</th>
+      <th>Casa%</th><th>Empate%</th><th>Fora%</th><th>Média Gols HT</th><th>Over 1.5 HT%</th>
+    </tr></thead><tbody id="m-prof-tbody"></tbody></table></div>
   </div>
 
 </div>
-
 </main>
 
-<footer>
-  <div class="disclaimer">
-    ⚠️ Este sistema é para fins informativos e analíticos apenas.<br>
-    Apostas envolvem risco financeiro. Nunca aposte mais do que pode perder.<br>
-    <strong>BetAnalytics Pro</strong> · Gerado automaticamente via GitHub Actions · {date_str}
-  </div>
-</footer>
+<footer><div class="disc">⚠️ Este sistema é para fins informativos e analíticos apenas.<br>Apostas envolvem risco financeiro. Nunca aposte mais do que pode perder.<br><strong>BetAnalytics Pro</strong> · GitHub Actions · {date_str}</div></footer>
 
 <script>
-// ── DATA ────────────────────────────────────────────────────────────────
-const ALL_BETS = {all_bets_json};
-const METRICS  = {metrics_json};
-const LEAGUES  = {league_profiles_json};
-const RECENT   = {recent_json};
-const HOT_BETS = {hot_bets_json};
-const TOTAL_FIXTURES = {total_fixtures};
-const TOTAL_VALUE_BETS = {total_value_bets};
-const DATE = "{date_str}";
+// ══════════════════════════════════════════════════════════
+//  DATA — injected from Python
+// ══════════════════════════════════════════════════════════
+{data_block}
 
-// ── NAV ─────────────────────────────────────────────────────────────────
-function showSection(id) {{
+// ══════════════════════════════════════════════════════════
+//  NAV
+// ══════════════════════════════════════════════════════════
+function nav(btn, sectionId) {{
   document.querySelectorAll('.section').forEach(s => s.classList.remove('active'));
-  document.querySelectorAll('.nav-btn').forEach(b => b.classList.remove('active'));
-  document.getElementById(id).classList.add('active');
-  event.target.classList.add('active');
+  document.querySelectorAll('.nb').forEach(b => b.classList.remove('active'));
+  document.getElementById(sectionId).classList.add('active');
+  btn.classList.add('active');
 }}
 
-// ── KPIs ─────────────────────────────────────────────────────────────────
-function renderKPIs() {{
-  const m = METRICS;
-  const roiColor = (m.roi||0) >= 0 ? 'green' : 'red';
-  const plColor  = (m.total_pl||0) >= 0 ? 'green' : 'red';
+// ══════════════════════════════════════════════════════════
+//  HELPERS
+// ══════════════════════════════════════════════════════════
+const TC = {{Elite:'elite',Forte:'forte',Moderada:'moderada'}};
+const p2 = v => (+v||0).toFixed(2);
+const p1 = v => (+v||0).toFixed(1);
+const pct = v => (+(v||0)*100).toFixed(1)+'%';
+const pctN = v => ((+v||0)*100).toFixed(1);
 
-  document.getElementById('kpi-grid').innerHTML = `
-    <div class="kpi">
-      <div class="kpi-label">Jogos Hoje</div>
-      <div class="kpi-value blue">${{TOTAL_FIXTURES}}</div>
-      <div class="kpi-sub">fixtures analisados</div>
-    </div>
-    <div class="kpi">
-      <div class="kpi-label">Value Bets</div>
-      <div class="kpi-value gold">${{TOTAL_VALUE_BETS}}</div>
-      <div class="kpi-sub">EV > 8% hoje</div>
-    </div>
-    <div class="kpi">
-      <div class="kpi-label">ROI 30d</div>
-      <div class="kpi-value ${{roiColor}}">${{(m.roi||0).toFixed(1)}}%</div>
-      <div class="kpi-sub">yield: ${{(m.yield_pct||0).toFixed(1)}}%</div>
-    </div>
-    <div class="kpi">
-      <div class="kpi-label">Hit Rate</div>
-      <div class="kpi-value">${{(m.hit_rate||0).toFixed(1)}}%</div>
-      <div class="kpi-sub">${{m.green||0}}✅ / ${{m.red||0}}❌</div>
-    </div>
-    <div class="kpi">
-      <div class="kpi-label">P/L Total</div>
-      <div class="kpi-value ${{plColor}}">${{(m.total_pl||0) >= 0 ? '+' : ''}}<br>${{(m.total_pl||0).toFixed(2)}}u</div>
-      <div class="kpi-sub">${{m.total_bets||0}} apostas</div>
-    </div>
-    <div class="kpi">
-      <div class="kpi-label">CLV Médio</div>
-      <div class="kpi-value green">+${{(m.avg_clv||0).toFixed(1)}}%</div>
-      <div class="kpi-sub">closing line value</div>
-    </div>
-    <div class="kpi">
-      <div class="kpi-label">EV Médio</div>
-      <div class="kpi-value gold">${{(m.ev_avg||0).toFixed(1)}}%</div>
-      <div class="kpi-sub">expected value</div>
-    </div>
-    <div class="kpi">
-      <div class="kpi-label">Max Drawdown</div>
-      <div class="kpi-value red">${{(m.max_drawdown||0).toFixed(2)}}u</div>
-      <div class="kpi-sub">pior sequência</div>
-    </div>
-  `;
-}}
-
-// ── BET CARD ─────────────────────────────────────────────────────────────
 function betCard(b) {{
-  const tier = (b.tier||'').toLowerCase();
-  const convMax = 10;
-  const conv = b.convergence || 0;
-  const dots = Array.from({{length: convMax}}, (_, i) =>
-    `<div class="conv-dot ${{i < conv ? 'filled' : 'empty'}}"></div>`
+  const t = (b.tier||'').toLowerCase();
+  const dots = Array.from({{length:10}},(_,i)=>
+    `<div style="width:5px;height:5px;border-radius:50%;background:${{i<(b.convergence||0)?'var(--accent)':'var(--border2)'}}"></div>`
   ).join('');
-
   return `
-  <div class="bet-card ${{tier}}">
-    <div class="bet-header">
+  <div class="bc ${{t}}">
+    <div class="bh">
       <div>
-        <div class="bet-match">${{b.home_team}} vs ${{b.away_team}}</div>
-        <div class="bet-league">${{b.league || '—'}} · ${{(b.kickoff||'').slice(0,10)}}</div>
+        <div class="bm-name">${{b.home_team||'?'}} vs ${{b.away_team||'?'}}</div>
+        <div class="bm-league">${{b.league||'—'}} · ${{(b.kickoff||'').slice(0,10)}}</div>
+        ${{b.country ? `<div class="bm-league" style="color:var(--purple)">${{b.country}}</div>` : ''}}
       </div>
-      <div class="tier-badge ${{tier}}">${{b.tier_emoji || ''}} ${{b.tier}}</div>
+      <span class="tb ${{t}}">${{b.tier_emoji||''}} ${{b.tier}}</span>
     </div>
-    <div class="bet-market">${{b.market}}</div>
-    <div class="bet-stats">
-      <div class="bet-stat">
-        <div class="bet-stat-val green">${{(b.model_prob*100).toFixed(1)}}%</div>
-        <div class="bet-stat-label">Prob. Modelo</div>
-      </div>
-      <div class="bet-stat">
-        <div class="bet-stat-val">${{(b.implied_prob*100).toFixed(1)}}%</div>
-        <div class="bet-stat-label">Prob. Implícita</div>
-      </div>
-      <div class="bet-stat">
-        <div class="bet-stat-val" style="color:var(--blue)">${{(b.edge*100 || (b.model_prob-b.implied_prob)*100).toFixed(1)}}%</div>
-        <div class="bet-stat-label">Edge</div>
-      </div>
+    <div class="bm-mkt">${{b.period ? `[${{b.period}}] `:''}}${{b.market}}</div>
+    <div class="bs">
+      <div><div class="bsv green">${{pctN(b.model_prob)}}%</div><div class="bsl">Prob. Modelo</div></div>
+      <div><div class="bsv">${{pctN(b.implied_prob)}}%</div><div class="bsl">Prob. Implícita</div></div>
+      <div><div class="bsv" style="color:var(--blue)">${{p1((b.model_prob-b.implied_prob)*100)}}%</div><div class="bsl">Edge</div></div>
     </div>
-    <div class="bet-footer">
+    <div class="bf">
       <div>
-        <div class="bet-odd">${{(b.bet365_odd||0).toFixed(2)}}</div>
-        <div style="font-size:9px;color:var(--muted);font-family:var(--mono)">Kelly: ${{(b.kelly_pct||0).toFixed(1)}}%</div>
+        <div class="bodd">${{p2(b.bet365_odd)}}</div>
+        <div style="font-size:9px;color:var(--muted);font-family:var(--mono)">Kelly: ${{p1(b.kelly_pct)}}%</div>
       </div>
       <div style="text-align:right">
-        <div class="bet-ev">EV +${{(b.ev_pct||0).toFixed(1)}}%</div>
-        <div class="conv-dots" style="margin-top:4px;justify-content:flex-end">${{dots}}</div>
-        <div style="font-size:9px;color:var(--muted);font-family:var(--mono)">Convergência ${{conv}}/10</div>
+        <div style="font-family:var(--mono);font-size:12px;color:var(--accent)">EV +${{p1(b.ev_pct)}}%</div>
+        ${{b.convergence!=null ? `<div style="display:flex;gap:2px;margin-top:4px;justify-content:flex-end">${{dots}}</div><div style="font-size:9px;color:var(--muted)">Conv. ${{b.convergence}}/10</div>` : ''}}
       </div>
     </div>
   </div>`;
 }}
 
-// ── HOT BETS ─────────────────────────────────────────────────────────────
-function renderHotBets() {{
-  const html = HOT_BETS.length
-    ? HOT_BETS.map(betCard).join('')
-    : '<div style="color:var(--muted);font-family:var(--mono);padding:20px">Nenhuma hot bet encontrada hoje.</div>';
-
-  document.getElementById('hot-bets-preview').innerHTML = html;
-  document.getElementById('hot-bets-full').innerHTML = html;
-}}
-
-// ── METRICS DETAIL ────────────────────────────────────────────────────────
-function renderMetricsDetail() {{
+// ══════════════════════════════════════════════════════════
+//  MAIN DASHBOARD
+// ══════════════════════════════════════════════════════════
+function renderKPIs() {{
   const m = METRICS;
-  document.getElementById('metrics-detail').innerHTML = `
-    <div style="display:grid;gap:10px;font-family:var(--mono);font-size:12px">
-      ${{metricRow('Total Apostas', m.total_bets||0)}}
-      ${{metricRow('Stake Total', (m.total_stake||0).toFixed(2)+'u')}}
-      ${{metricRow('Lucro/Prejuízo', ((m.total_pl||0) >= 0 ? '+':'')+(m.total_pl||0).toFixed(2)+'u', m.total_pl >= 0)}}
-      ${{metricRow('ROI', (m.roi||0).toFixed(2)+'%', m.roi >= 0)}}
-      ${{metricRow('Hit Rate', (m.hit_rate||0).toFixed(1)+'%')}}
-      ${{metricRow('CLV Médio', '+'+(m.avg_clv||0).toFixed(2)+'%', true)}}
-    </div>`;
+  const rc = v => v>=0?'green':'red';
+  document.getElementById('kpi-main').innerHTML = [
+    ['Jogos Hoje',   TOTAL_FIXTURES, 'blue',    'fixtures analisados'],
+    ['Value Bets',   TOTAL_VB,       'gold',    'EV > 8% hoje'],
+    ['ROI 30d',      (m.roi||0).toFixed(1)+'%', rc(m.roi), 'yield: '+p1(m.yield_pct)+'%'],
+    ['Hit Rate',     p1(m.hit_rate)+'%', '',   (m.green||0)+'✅ / '+(m.red||0)+'❌'],
+    ['P/L Total',    ((m.total_pl||0)>=0?'+':'')+p2(m.total_pl)+'u', rc(m.total_pl), (m.total_bets||0)+' apostas'],
+    ['CLV Médio',    '+'+p1(m.avg_clv)+'%', 'green', 'closing line value'],
+    ['EV Médio',     p1(m.ev_avg)+'%', 'gold',  'expected value'],
+    ['Max Drawdown', p2(m.max_drawdown)+'u', 'red', 'pior sequência'],
+  ].map(([label,val,cls,sub])=>`
+    <div class="kpi">
+      <div class="kpi-label">${{label}}</div>
+      <div class="kpi-value ${{cls}}">${{val}}</div>
+      <div class="kpi-sub">${{sub}}</div>
+    </div>`).join('');
+}}
 
-  // Tier breakdown
-  const tiers = m.by_tier || {{}};
-  const tierHTML = Object.entries(tiers).map(([tier, data]) => `
+function renderHotBetsPreview() {{
+  const html = HOT_BETS.length ? HOT_BETS.map(betCard).join('') : empty('Nenhuma hot bet hoje.');
+  document.getElementById('hbg-preview').innerHTML = html;
+  document.getElementById('hbg-full').innerHTML    = html;
+}}
+
+function renderMetrics() {{
+  const m = METRICS;
+  const row = (l,v,pos) => `<div style="display:flex;justify-content:space-between;padding:6px 0;border-bottom:1px solid var(--border)"><span style="color:var(--muted)">${{l}}</span><span class="${{pos==null?'':pos?'green':'red'}}">${{v}}</span></div>`;
+  document.getElementById('metrics-detail').innerHTML = [
+    row('Total Apostas', m.total_bets||0),
+    row('Stake Total', p2(m.total_stake||0)+'u'),
+    row('Lucro/Prejuízo', ((m.total_pl||0)>=0?'+':'')+p2(m.total_pl||0)+'u', (m.total_pl||0)>=0),
+    row('ROI', p1(m.roi||0)+'%', (m.roi||0)>=0),
+    row('Hit Rate', p1(m.hit_rate||0)+'%'),
+    row('CLV Médio', '+'+p1(m.avg_clv||0)+'%', true),
+  ].join('');
+
+  const tiers = m.by_tier||{{}};
+  document.getElementById('tier-detail').innerHTML = Object.entries(tiers).map(([tier,d])=>`
     <div style="margin-bottom:12px">
-      <div style="display:flex;justify-content:space-between;margin-bottom:4px">
-        <span style="font-weight:700">${{tier}}</span>
-        <span style="font-family:var(--mono);font-size:11px;color:var(--muted)">${{data.bets}} apostas</span>
-      </div>
+      <div style="display:flex;justify-content:space-between;margin-bottom:4px"><span style="font-weight:700">${{tier}}</span><span style="font-family:var(--mono);font-size:11px;color:var(--muted)">${{d.bets}} apostas</span></div>
       <div style="display:grid;grid-template-columns:1fr 1fr;gap:6px;font-family:var(--mono);font-size:11px">
-        <div>ROI: <span class="${{data.roi >= 0 ? 'green' : 'red'}}">${{data.roi >= 0 ? '+':''}}${{data.roi}}%</span></div>
-        <div>Hit: <span class="green">${{data.hit_rate}}%</span></div>
+        <div>ROI: <span class="${{d.roi>=0?'green':'red'}}">${{d.roi>=0?'+':''}}${{d.roi}}%</span></div>
+        <div>Hit: <span class="green">${{d.hit_rate}}%</span></div>
       </div>
-    </div>
-  `).join('') || '<div style="color:var(--muted);font-size:11px">Sem dados suficientes</div>';
-
-  document.getElementById('tier-breakdown').innerHTML = tierHTML;
+    </div>`).join('') || empty('Sem dados.');
 }}
 
-function metricRow(label, val, isPositive) {{
-  const colorClass = isPositive === undefined ? '' : isPositive ? ' class="green"' : ' class="red"';
-  return `<div style="display:flex;justify-content:space-between;padding:6px 0;border-bottom:1px solid var(--border)">
-    <span style="color:var(--muted)">${{label}}</span>
-    <span${{colorClass}}>${{val}}</span>
-  </div>`;
-}}
-
-// ── TABLE ─────────────────────────────────────────────────────────────────
+// ══════════════════════════════════════════════════════════
+//  TODAS APOSTAS
+// ══════════════════════════════════════════════════════════
 function populateFilters() {{
-  const leagues = [...new Set(ALL_BETS.map(b => b.league).filter(Boolean))].sort();
-  const markets = [...new Set(ALL_BETS.map(b => b.market).filter(Boolean))].sort();
-
-  const leagueEl = document.getElementById('filter-league');
-  leagues.forEach(l => leagueEl.innerHTML += `<option value="${{l}}">${{l}}</option>`);
-
-  const marketEl = document.getElementById('filter-market');
-  markets.forEach(m => marketEl.innerHTML += `<option value="${{m}}">${{m}}</option>`);
+  const leagues = [...new Set(ALL_BETS.map(b=>b.league).filter(Boolean))].sort();
+  const markets = [...new Set(ALL_BETS.map(b=>b.market).filter(Boolean))].sort();
+  const le = document.getElementById('f-league');
+  const me = document.getElementById('f-market');
+  leagues.forEach(l => le.innerHTML += `<option>${{l}}</option>`);
+  markets.forEach(m => me.innerHTML += `<option>${{m}}</option>`);
 }}
 
 function renderTable() {{
-  const league = document.getElementById('filter-league').value;
-  const market = document.getElementById('filter-market').value;
-  const tier   = document.getElementById('filter-tier').value;
-  const minEV  = parseFloat(document.getElementById('filter-ev').value) || 0;
-
-  let bets = ALL_BETS.filter(b => {{
-    if (league && b.league !== league) return false;
-    if (market && b.market !== market) return false;
-    if (tier   && b.tier !== tier)     return false;
-    if ((b.ev_pct||0) < minEV)        return false;
+  let bets = ALL_BETS.filter(b=>{{
+    if(document.getElementById('f-league').value && b.league!==document.getElementById('f-league').value) return false;
+    if(document.getElementById('f-market').value && b.market!==document.getElementById('f-market').value) return false;
+    if(document.getElementById('f-tier').value   && b.tier!==document.getElementById('f-tier').value)     return false;
+    if((b.ev_pct||0)<(+document.getElementById('f-ev').value||0)) return false;
     return true;
-  }});
+  }}).sort((a,b)=>(b.ev_pct||0)-(a.ev_pct||0));
 
-  bets.sort((a,b) => (b.ev_pct||0) - (a.ev_pct||0));
-
-  const tier_class = {{Elite:'elite', Forte:'forte', Moderada:'moderada'}};
-
-  document.getElementById('bets-tbody').innerHTML = bets.map(b => `
+  document.getElementById('all-tbody').innerHTML = bets.length ? bets.map(b=>`
     <tr>
-      <td><span class="tier-badge ${{tier_class[b.tier]||''}}">${{b.tier_emoji||''}} ${{b.tier}}</span></td>
+      <td><span class="tb ${{TC[b.tier]||''}}">${{b.tier_emoji||''}} ${{b.tier}}</span></td>
       <td><strong>${{b.home_team}}</strong> vs ${{b.away_team}}</td>
       <td style="color:var(--muted)">${{b.league||'—'}}</td>
       <td style="color:var(--blue)">${{b.market}}</td>
-      <td style="color:var(--gold);font-weight:700">${{(b.bet365_odd||0).toFixed(2)}}</td>
-      <td>
-        <div style="color:var(--accent)">${{(b.model_prob*100).toFixed(1)}}%</div>
-        <div class="prob-bar"><div class="prob-fill" style="width:${{b.model_prob*100}}%"></div></div>
-      </td>
-      <td style="color:var(--muted)">${{(b.implied_prob*100).toFixed(1)}}%</td>
-      <td style="color:var(--accent);font-weight:600">+${{(b.ev_pct||0).toFixed(1)}}%</td>
-      <td style="color:var(--purple)">${{(b.kelly_pct||0).toFixed(1)}}%</td>
-      <td>
-        <div style="display:flex;gap:2px;align-items:center">
-          ${{Array.from({{length:10}},(_,i)=>`<div style="width:5px;height:5px;border-radius:50%;background:${{i<(b.convergence||0)?'var(--accent)':'var(--border2)'}}"></div>`).join('')}}
-          <span style="margin-left:4px;color:var(--muted)">${{b.convergence||0}}</span>
-        </div>
-      </td>
-    </tr>
-  `).join('') || '<tr><td colspan="10" style="text-align:center;color:var(--muted);padding:30px">Nenhuma aposta encontrada com os filtros selecionados.</td></tr>';
+      <td style="color:var(--gold);font-weight:700">${{p2(b.bet365_odd)}}</td>
+      <td><div style="color:var(--accent)">${{pctN(b.model_prob)}}%</div><div class="pb"><div class="pf" style="width:${{b.model_prob*100}}%"></div></div></td>
+      <td style="color:var(--muted)">${{pctN(b.implied_prob)}}%</td>
+      <td style="color:var(--accent);font-weight:600">+${{p1(b.ev_pct)}}%</td>
+      <td style="color:var(--purple)">${{p1(b.kelly_pct)}}%</td>
+      <td><div style="display:flex;gap:2px">${{Array.from({{length:10}},(_,i)=>`<div style="width:5px;height:5px;border-radius:50%;background:${{i<(b.convergence||0)?'var(--accent)':'var(--border2)'}}"></div>`).join('')}}</div></td>
+    </tr>`).join('') : empty13('Nenhuma aposta com os filtros selecionados.', 10);
 }}
 
-// ── TRACKING ─────────────────────────────────────────────────────────────
+// ══════════════════════════════════════════════════════════
+//  TRACKING
+// ══════════════════════════════════════════════════════════
 function renderTracking() {{
-  document.getElementById('tracking-tbody').innerHTML = RECENT.map(r => {{
-    const isGreen = (r.result||'').includes('GREEN');
-    const isPending = (r.result||'') === 'PENDING';
-    const badgeClass = isPending ? 'pending' : isGreen ? 'green' : 'red';
-    const badgeLabel = isPending ? 'PENDENTE' : isGreen ? '✅ GREEN' : '❌ RED';
-    const pl = r.profit_loss;
-    return `
-    <tr>
+  document.getElementById('track-tbody').innerHTML = RECENT.length ? RECENT.map(r=>{{
+    const g=(r.result||'').includes('GREEN'),pen=(r.result||'')==='PENDING';
+    const cls=pen?'pending':g?'green':'red';
+    const lbl=pen?'PENDENTE':g?'✅ GREEN':'❌ RED';
+    const pl=r.profit_loss;
+    return `<tr>
       <td style="color:var(--muted)">${{(r.date||'').slice(0,10)}}</td>
       <td><strong>${{r.home_team||'—'}}</strong> vs ${{r.away_team||'—'}}</td>
       <td style="color:var(--blue)">${{r.market||'—'}}</td>
-      <td style="color:var(--gold)">${{(r.bet365_odd||0).toFixed(2)}}</td>
-      <td style="color:var(--accent)">+${{(r.ev_pct||0).toFixed(1)}}%</td>
-      <td><span class="tier-badge">${{r.tier||'—'}}</span></td>
-      <td><span class="badge badge-${{badgeClass}}">${{badgeLabel}}</span></td>
-      <td class="${{pl >= 0 ? 'green' : 'red'}}">${{pl !== null && pl !== undefined ? (pl >= 0 ? '+':'')+(+pl).toFixed(2)+'u' : '—'}}</td>
-      <td class="${{(r.roi||0) >= 0 ? 'green' : 'red'}}">${{r.roi !== null && r.roi !== undefined ? (r.roi >= 0 ? '+':'') + r.roi + '%' : '—'}}</td>
-      <td style="color:var(--purple)">${{r.clv_realized !== null && r.clv_realized !== undefined ? '+'+r.clv_realized+'%' : '—'}}</td>
+      <td style="color:var(--gold)">${{p2(r.bet365_odd)}}</td>
+      <td style="color:var(--accent)">+${{p1(r.ev_pct)}}%</td>
+      <td><span class="tb">${{r.tier||'—'}}</span></td>
+      <td><span class="badge badge-${{cls}}">${{lbl}}</span></td>
+      <td class="${{(pl||0)>=0?'green':'red'}}">${{pl!=null?(pl>=0?'+':'')+p2(pl)+'u':'—'}}</td>
+      <td class="${{(r.roi||0)>=0?'green':'red'}}">${{r.roi!=null?(r.roi>=0?'+':'')+r.roi+'%':'—'}}</td>
+      <td style="color:var(--purple)">${{r.clv_realized!=null?'+'+r.clv_realized+'%':'—'}}</td>
     </tr>`;
-  }}).join('') || '<tr><td colspan="10" style="text-align:center;color:var(--muted);padding:30px">Nenhum resultado registrado ainda.</td></tr>';
+  }}).join('') : empty13('Nenhum resultado registrado ainda.', 10);
 }}
 
-// ── LEAGUES ──────────────────────────────────────────────────────────────
+// ══════════════════════════════════════════════════════════
+//  LIGAS GRANDES
+// ══════════════════════════════════════════════════════════
 function renderLeagues() {{
-  document.getElementById('league-grid').innerHTML = LEAGUES.map(l => `
-    <div class="league-card">
-      <div class="league-name">${{l.league}}</div>
-      <div class="league-stats">
-        <div class="ls"><span class="ls-label">Média Gols: </span><span class="ls-val">${{l.avg_goals_pg||0}}</span></div>
-        <div class="ls"><span class="ls-label">BTTS%: </span><span class="ls-val green">${{l.btts_pct||0}}%</span></div>
-        <div class="ls"><span class="ls-label">Over 2.5%: </span><span class="ls-val">${{l.over25_pct||0}}%</span></div>
-        <div class="ls"><span class="ls-label">Casa%: </span><span class="ls-val">${{l.home_win_pct||0}}%</span></div>
-        <div class="ls"><span class="ls-label">Empate%: </span><span class="ls-val">${{l.draw_pct||0}}%</span></div>
-        <div class="ls"><span class="ls-label">Fora%: </span><span class="ls-val">${{l.away_win_pct||0}}%</span></div>
-        <div class="ls" style="grid-column:1/-1"><span class="ls-label">Jogos: </span><span class="ls-val">${{l.matches_analyzed||0}}</span></div>
+  document.getElementById('lg-grid').innerHTML = LEAGUES.length ? LEAGUES.map(l=>`
+    <div class="lgc">
+      <div class="lgn">${{l.league}}</div>
+      <div class="lgs">
+        <div class="ls"><span class="ls-l">Média Gols: </span><span class="ls-v">${{l.avg_goals_pg||0}}</span></div>
+        <div class="ls"><span class="ls-l">BTTS%: </span><span class="ls-v green">${{l.btts_pct||0}}%</span></div>
+        <div class="ls"><span class="ls-l">Over 2.5%: </span><span class="ls-v">${{l.over25_pct||0}}%</span></div>
+        <div class="ls"><span class="ls-l">Casa%: </span><span class="ls-v">${{l.home_win_pct||0}}%</span></div>
+        <div class="ls"><span class="ls-l">Empate%: </span><span class="ls-v">${{l.draw_pct||0}}%</span></div>
+        <div class="ls"><span class="ls-l">Fora%: </span><span class="ls-v">${{l.away_win_pct||0}}%</span></div>
+        <div class="ls" style="grid-column:1/-1"><span class="ls-l">Jogos: </span><span class="ls-v">${{l.matches_analyzed||0}}</span></div>
       </div>
-    </div>
-  `).join('') || '<div style="color:var(--muted)">Sem dados de ligas disponíveis.</div>';
+    </div>`).join('') : `<div style="color:var(--muted)">Sem dados.</div>`;
 }}
 
-// ── INIT ──────────────────────────────────────────────────────────────────
-renderKPIs();
-renderHotBets();
-renderMetricsDetail();
-populateFilters();
-renderTable();
-renderTracking();
-renderLeagues();
-
-// ── MINOR LEAGUES ─────────────────────────────────────────────────────────
-const MINOR_BETS   = {minor_bets_json};
-const MINOR_HOT    = {minor_hot_json};
-const MINOR_GROUPS = {minor_by_group_json};
-const MINOR_PROF   = {minor_profiles_json};
-const MINOR_FIX    = {minor_fixtures};
-
+// ══════════════════════════════════════════════════════════
+//  LIGAS MENORES
+// ══════════════════════════════════════════════════════════
 function renderMinorKPIs() {{
-  document.getElementById('minor-fixtures-kpi').textContent = MINOR_FIX;
-  document.getElementById('minor-bets-kpi').textContent = MINOR_BETS.length;
-  const leagues = [...new Set(MINOR_BETS.map(b => b.league))].length;
-  document.getElementById('minor-leagues-kpi').textContent = leagues + ' ligas';
+  document.getElementById('m-fix-kpi').textContent = MINOR_FIX;
+  document.getElementById('m-vb-kpi').textContent  = MINOR_BETS.length;
+  const lgs = new Set(MINOR_BETS.map(b=>b.league)).size;
+  document.getElementById('m-lg-kpi').textContent  = lgs+' ligas';
 }}
 
 function renderMinorHot() {{
-  document.getElementById('minor-hot-grid').innerHTML = MINOR_HOT.length
-    ? MINOR_HOT.map(b => betCard(b)).join('')
-    : '<div style="color:var(--muted);font-family:var(--mono);padding:20px">Nenhuma hot bet em ligas menores hoje.</div>';
+  document.getElementById('m-hot-grid').innerHTML = MINOR_HOT.length
+    ? MINOR_HOT.map(betCard).join('')
+    : empty('Nenhuma hot bet em ligas menores hoje.');
 }}
 
 function renderMinorTable() {{
-  const group  = document.getElementById('minor-filter-group').value;
-  const period = document.getElementById('minor-filter-period').value;
-  const mkt    = document.getElementById('minor-filter-market').value;
-  const minEV  = parseFloat(document.getElementById('minor-filter-ev').value) || 0;
+  const g   = document.getElementById('mf-group').value;
+  const per = document.getElementById('mf-period').value;
+  const mkt = document.getElementById('mf-mkt').value;
+  const tier= document.getElementById('mf-tier').value;
+  const ev  = +(document.getElementById('mf-ev').value)||0;
 
-  let bets = MINOR_BETS.filter(b => {{
-    if (group  && b.group !== group)                  return false;
-    if (period && b.period !== period)                return false;
-    if (mkt    && !b.market.includes(mkt))            return false;
-    if ((b.ev_pct||0) < minEV)                        return false;
+  let bets = MINOR_BETS.filter(b=>{{
+    if(g   && b.group!==g)             return false;
+    if(per && b.period!==per)          return false;
+    if(mkt && !b.market.includes(mkt)) return false;
+    if(tier&& b.tier!==tier)           return false;
+    if((b.ev_pct||0)<ev)               return false;
     return true;
-  }});
-  bets.sort((a,b) => (b.ev_pct||0) - (a.ev_pct||0));
+  }}).sort((a,b)=>(b.ev_pct||0)-(a.ev_pct||0));
 
-  const tier_class = {{Elite:'elite', Forte:'forte', Moderada:'moderada'}};
-  const period_badge = p => p === 'HT'
-    ? '<span style="background:rgba(159,110,255,0.15);color:var(--purple);font-family:var(--mono);font-size:9px;padding:2px 5px;border-radius:3px">HT</span>'
-    : '<span style="background:rgba(77,159,255,0.12);color:var(--blue);font-family:var(--mono);font-size:9px;padding:2px 5px;border-radius:3px">FT</span>';
+  const pbadge = p => p==='HT'
+    ? `<span style="background:rgba(159,110,255,.15);color:var(--purple);font-family:var(--mono);font-size:9px;padding:2px 6px;border-radius:3px">HT</span>`
+    : `<span style="background:rgba(77,159,255,.12);color:var(--blue);font-family:var(--mono);font-size:9px;padding:2px 6px;border-radius:3px">FT</span>`;
 
-  document.getElementById('minor-bets-tbody').innerHTML = bets.map(b => `
+  document.getElementById('m-tbody').innerHTML = bets.length ? bets.map(b=>`
     <tr>
-      <td><span class="tier-badge ${{tier_class[b.tier]||''}}">${{b.tier_emoji||''}} ${{b.tier}}</span></td>
+      <td><span class="tb ${{TC[b.tier]||''}}">${{b.tier_emoji||''}} ${{b.tier}}</span></td>
       <td><strong>${{b.home_team}}</strong> vs ${{b.away_team}}</td>
       <td style="color:var(--muted);font-size:10px">${{b.league||'—'}}</td>
       <td style="color:var(--muted);font-size:10px">${{b.country||'—'}}</td>
       <td style="color:var(--blue)">${{b.market}}</td>
-      <td>${{period_badge(b.period)}}</td>
-      <td style="color:var(--gold);font-weight:700">${{(b.bet365_odd||0).toFixed(2)}}</td>
-      <td>
-        <div style="color:var(--accent)">${{(b.model_prob*100).toFixed(1)}}%</div>
-        <div class="prob-bar"><div class="prob-fill" style="width:${{b.model_prob*100}}%"></div></div>
-      </td>
-      <td style="color:var(--muted)">${{(b.implied_prob*100).toFixed(1)}}%</td>
-      <td style="color:var(--accent);font-weight:600">+${{(b.ev_pct||0).toFixed(1)}}%</td>
-      <td style="color:var(--purple)">${{(b.kelly_pct||0).toFixed(1)}}%</td>
-      <td style="font-family:var(--mono);font-size:10px;color:var(--muted)">${{(b.mu_home_ft||0).toFixed(2)}}</td>
-      <td style="font-family:var(--mono);font-size:10px;color:var(--muted)">${{(b.mu_away_ft||0).toFixed(2)}}</td>
-    </tr>
-  `).join('') || '<tr><td colspan="13" style="text-align:center;color:var(--muted);padding:24px">Nenhuma aposta com os filtros selecionados.</td></tr>';
+      <td>${{pbadge(b.period)}}</td>
+      <td style="color:var(--gold);font-weight:700">${{p2(b.bet365_odd)}}</td>
+      <td><div style="color:var(--accent)">${{pctN(b.model_prob)}}%</div><div class="pb"><div class="pf" style="width:${{b.model_prob*100}}%"></div></div></td>
+      <td style="color:var(--muted)">${{pctN(b.implied_prob)}}%</td>
+      <td style="color:var(--accent);font-weight:600">+${{p1(b.ev_pct)}}%</td>
+      <td style="color:var(--purple)">${{p1(b.kelly_pct)}}%</td>
+      <td style="color:var(--muted)">${{p2(b.mu_home_ft)}}</td>
+      <td style="color:var(--muted)">${{p2(b.mu_away_ft)}}</td>
+    </tr>`).join('') : empty13('Nenhuma aposta com os filtros selecionados.', 13);
 }}
 
 function renderMinorProfiles() {{
-  document.getElementById('minor-profiles-tbody').innerHTML = MINOR_PROF.map(p => `
+  document.getElementById('m-prof-tbody').innerHTML = MINOR_PROF.length ? MINOR_PROF.map(p=>`
     <tr>
       <td style="font-weight:600">${{p.league||'—'}}</td>
-      <td style="font-family:var(--mono);color:var(--muted)">${{p.n_matches||0}}</td>
-      <td style="font-family:var(--mono)">${{(p.avg_goals_ft||0).toFixed(2)}}</td>
-      <td><span class="${{(p.over_25_ft||0) > 0.55 ? 'green' : ''}}">${{((p.over_25_ft||0)*100).toFixed(1)}}%</span></td>
-      <td><span class="${{(p.btts_ft||0) > 0.50 ? 'green' : ''}}">${{((p.btts_ft||0)*100).toFixed(1)}}%</span></td>
-      <td style="font-family:var(--mono)">${{((p.home_win_rate||0)*100).toFixed(1)}}%</td>
-      <td style="font-family:var(--mono)">${{((p.draw_rate||0)*100).toFixed(1)}}%</td>
-      <td style="font-family:var(--mono)">${{((p.away_win_rate||0)*100).toFixed(1)}}%</td>
-      <td style="font-family:var(--mono)">${{(p.avg_goals_ht||0).toFixed(2)}}</td>
-      <td><span class="${{(p.over_15_ht||0) > 0.30 ? 'green' : ''}}">${{((p.over_15_ht||0)*100).toFixed(1)}}%</span></td>
-    </tr>
-  `).join('') || '<tr><td colspan="10" style="text-align:center;color:var(--muted);padding:20px">Sem dados de ligas menores.</td></tr>';
+      <td style="color:var(--muted)">${{p.n_matches||0}}</td>
+      <td>${{p2(p.avg_goals_ft)}}</td>
+      <td><span class="${{(p.over_25_ft||0)>.55?'green':''}}">${{pctN(p.over_25_ft)}}%</span></td>
+      <td><span class="${{(p.btts_ft||0)>.50?'green':''}}">${{pctN(p.btts_ft)}}%</span></td>
+      <td>${{pctN(p.home_win_rate)}}%</td>
+      <td>${{pctN(p.draw_rate)}}%</td>
+      <td>${{pctN(p.away_win_rate)}}%</td>
+      <td>${{p2(p.avg_goals_ht)}}</td>
+      <td><span class="${{(p.over_15_ht||0)>.30?'green':''}}">${{pctN(p.over_15_ht)}}%</span></td>
+    </tr>`).join('') : empty13('Sem dados de ligas menores.', 10);
 }}
 
+// ══════════════════════════════════════════════════════════
+//  UTILS
+// ══════════════════════════════════════════════════════════
+function empty(msg) {{
+  return `<div style="color:var(--muted);font-family:var(--mono);padding:20px">${{msg}}</div>`;
+}}
+function empty13(msg, cols) {{
+  return `<tr><td colspan="${{cols}}" style="text-align:center;color:var(--muted);padding:24px">${{msg}}</td></tr>`;
+}}
+
+// ══════════════════════════════════════════════════════════
+//  INIT
+// ══════════════════════════════════════════════════════════
+renderKPIs();
+renderHotBetsPreview();
+renderMetrics();
+populateFilters();
+renderTable();
+renderTracking();
+renderLeagues();
 renderMinorKPIs();
 renderMinorHot();
 renderMinorTable();
 renderMinorProfiles();
-
 </script>
 </body>
 </html>"""
-
-    return html
 
 
 def build_and_save_dashboard(data: dict):
     cfg = load_config()
     out_dir = Path(cfg["paths"]["dashboard_output"])
     out_dir.mkdir(parents=True, exist_ok=True)
-
     html = generate_dashboard(data)
     out_path = out_dir / "index.html"
     out_path.write_text(html, encoding="utf-8")
