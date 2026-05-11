@@ -1,5 +1,5 @@
 {
-  "generated_at": "2026-05-11T14:35:46.772547",
+  "generated_at": "2026-05-11T19:00:51.933635",
   "date": "2026-05-11",
   "total_fixtures": 10,
   "total_value_bets": 0,
@@ -50,7 +50,7 @@
       "away_id": 103,
       "venue": "",
       "referee": "",
-      "status": "TIMED",
+      "status": "IN_PLAY",
       "minor_focus": false,
       "source": "football-data.org"
     },
