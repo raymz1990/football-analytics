@@ -1,4 +1,4 @@
-# src/pipeline.py — Orquestrador principal do sistema
+# src/pipeline.py — Orquestrador principal
 import json
 import numpy as np
 import pandas as pd
@@ -6,244 +6,141 @@ from pathlib import Path
 from datetime import datetime
 from typing import Dict, List
 
-from src.utils import load_config, get_logger, today_str, ensure_dirs, implied_prob
-from src.collectors.collector import run_collection_pipeline, fetch_odds_movement
-from src.models.statistical import PoissonModel, ZeroInflatedPoisson, MonteCarloSimulator, BayesianUpdater, DynamicElo, GlickoModel
-from src.models.ml_models import EnsembleModel, TeamStyleClusterer
-from src.markets.analyzer import MarketAnalyzer, filter_value_bets, OddsMovementAnalyzer, PlayerPropsAnalyzer
-from src.tracking.tracker import BetTracker, LeagueProfiler, RefereeModel
+from src.utils import load_config, get_logger, today_str, ensure_dirs, implied_prob, expected_value, kelly_fraction
+from src.collectors.collector import run_collection_pipeline
+from src.models.statistical import PoissonModel, MonteCarloSimulator, BayesianUpdater, DynamicElo, GlickoModel
+from src.models.ml_models import EnsembleModel
+from src.tracking.tracker import BetTracker, LeagueProfiler
 
 logger = get_logger("pipeline")
 cfg = load_config()
+VB  = cfg["value_betting"]
 
 
 def load_historical_matches() -> pd.DataFrame:
     path = Path(cfg["paths"]["data_historical"]) / "matches.csv"
     if path.exists():
         return pd.read_csv(path)
-    # DataFrame mínimo para não quebrar
     return pd.DataFrame(columns=[
-        "home_team", "away_team", "home_goals", "away_goals",
-        "league_name", "date", "league_id"
+        "home_team","away_team","home_goals","away_goals","league_name","date","league_id"
     ])
 
 
-def build_mock_odds(fixture_row: pd.Series) -> Dict:
-    """Odds placeholder — substituir por dados reais da API."""
+def get_league_avg(historical: pd.DataFrame, league_id: int) -> dict:
+    """Médias da liga a partir do histórico."""
+    sub = historical[historical.get("league_id", pd.Series()) == league_id] if "league_id" in historical.columns else historical
+    if sub.empty or len(sub) < 5:
+        return {"home": 1.35, "away": 1.10, "total": 2.45}
     return {
-        "home_win": 2.10, "draw": 3.40, "away_win": 3.60,
-        "btts_yes": 1.85, "btts_no": 1.95,
-        "over_05": 1.05, "under_05": 10.0,
-        "over_15": 1.30, "under_15": 3.50,
-        "over_25": 1.85, "under_25": 1.95,
-        "over_35": 3.20, "under_35": 1.35,
-        "cards_over_45": 1.80, "cards_under_45": 2.00,
+        "home":  float(sub["home_goals"].mean()),
+        "away":  float(sub["away_goals"].mean()),
+        "total": float((sub["home_goals"] + sub["away_goals"]).mean()),
     }
 
 
-def build_fixture_info(row: pd.Series, historical: pd.DataFrame) -> Dict:
-    """Extrai features de contexto do fixture."""
-    home = row["home_team"]
-    away = row["away_team"]
-
-    # Últimos jogos
-    home_hist = historical[
-        (historical["home_team"] == home) | (historical["away_team"] == home)
-    ].tail(15)
-    away_hist = historical[
-        (historical["home_team"] == away) | (historical["away_team"] == away)
-    ].tail(15)
-
-    def form_pts(df, team):
-        pts = 0
-        for _, r in df.iterrows():
-            hg, ag = int(r.get("home_goals", 0)), int(r.get("away_goals", 0))
-            is_home = r["home_team"] == team
-            if (is_home and hg > ag) or (not is_home and ag > hg): pts += 3
-            elif hg == ag: pts += 1
-        return pts / (len(df) * 3) if len(df) > 0 else 0.5
-
-    return {
-        "home_form_5": form_pts(home_hist.tail(5), home),
-        "away_form_5": form_pts(away_hist.tail(5), away),
-        "home_form_10": form_pts(home_hist.tail(10), home),
-        "away_form_10": form_pts(away_hist.tail(10), away),
-        "home_goals_scored_avg": float(home_hist[home_hist["home_team"] == home]["home_goals"].mean() or 1.35),
-        "home_goals_conceded_avg": float(home_hist[home_hist["home_team"] == home]["away_goals"].mean() or 1.10),
-        "away_goals_scored_avg": float(away_hist[away_hist["away_team"] == away]["away_goals"].mean() or 1.10),
-        "away_goals_conceded_avg": float(away_hist[away_hist["away_team"] == away]["home_goals"].mean() or 1.35),
-        "home_xg_avg": 1.40, "away_xg_avg": 1.10,
-        "home_xg_conceded_avg": 1.10, "away_xg_conceded_avg": 1.40,
-        "home_elo": 1500.0, "away_elo": 1500.0, "elo_diff": 0.0,
-        "home_home_win_rate": 0.45, "away_away_win_rate": 0.30,
-        "home_home_goals_avg": 1.50, "away_away_goals_avg": 1.10,
-        "home_injured_count": 0, "away_injured_count": 0,
-        "home_injury_impact": 0.0, "away_injury_impact": 0.0,
-        "ref_avg_cards": 4.5, "ref_avg_goals": 2.5, "ref_home_win_rate": 0.45,
-        "wind_kmh": 10.0, "temp_c": 20.0,
-        "home_days_rest": 7, "away_days_rest": 7,
-        "league_avg_goals": 2.5, "league_btts_rate": 0.50, "league_over25_rate": 0.52,
-        "home_corners_avg": 5.5, "away_corners_avg": 4.5,
-    }
-
-
-def run_models_for_fixture(row: pd.Series, historical: pd.DataFrame,
-                           poisson_model: PoissonModel,
-                           elo_model: DynamicElo,
-                           glicko_model: GlickoModel) -> Dict:
-    """Executa todos os modelos para um fixture."""
+def estimate_lambdas(row: pd.Series, historical: pd.DataFrame) -> tuple:
+    """Estima mu (casa) e nu (fora) com shrinkage Bayesian."""
     home, away = row["home_team"], row["away_team"]
-    fix_info = build_fixture_info(row, historical)
+    lg_avg = get_league_avg(historical, row.get("league_id", 0))
 
-    # Lambdas via Poisson (com fallback)
-    try:
-        mu, nu = poisson_model.predict_mu_nu(home, away)
-    except Exception:
-        mu, nu = 1.35, 1.10
+    def team_avg(team, side):
+        col_gf = "home_goals" if side == "home" else "away_goals"
+        col_ga = "away_goals" if side == "home" else "home_goals"
+        key    = "home_team" if side == "home" else "away_team"
+        sub = historical[historical[key] == team].tail(10) if not historical.empty else pd.DataFrame()
+        if sub.empty:
+            return lg_avg["home"] if side == "home" else lg_avg["away"], \
+                   lg_avg["away"] if side == "home" else lg_avg["home"]
+        w = min(len(sub) / 10, 0.85)
+        gf = w * float(sub[col_gf].mean()) + (1 - w) * (lg_avg["home"] if side == "home" else lg_avg["away"])
+        ga = w * float(sub[col_ga].mean()) + (1 - w) * (lg_avg["away"] if side == "home" else lg_avg["home"])
+        return gf, ga
 
-    # Bayesian
-    bayes = BayesianUpdater()
-    home_goals_hist = list(
-        historical[historical["home_team"] == home]["home_goals"].dropna()
-    )
-    away_goals_hist = list(
-        historical[historical["away_team"] == away]["away_goals"].dropna()
-    )
-    mu_bayes = bayes.predict_lambda(home_goals_hist, 1.35)
-    nu_bayes = bayes.predict_lambda(away_goals_hist, 1.10)
+    home_gf, home_ga = team_avg(home, "home")
+    away_gf, away_ga = team_avg(away, "away")
 
-    # ZIP
-    zip_model = ZeroInflatedPoisson()
-    zip_matrix = zip_model.predict_matrix(mu, nu)
-    zip_probs = {
-        "home": float(np.tril(zip_matrix, -1).sum()),
-        "draw": float(np.trace(zip_matrix)),
-        "away": float(np.triu(zip_matrix, 1).sum()),
-    }
+    mu = np.clip(home_gf * (away_ga / max(lg_avg["away"], 0.1)) * 1.10, 0.3, 5.0)
+    nu = np.clip(away_gf * (home_ga / max(lg_avg["home"], 0.1)),       0.3, 4.5)
+    return float(mu), float(nu)
 
-    # Monte Carlo
+
+def simulate_fixture(mu: float, nu: float) -> dict:
     mc = MonteCarloSimulator(n_simulations=cfg["models"]["monte_carlo_simulations"])
-    mc_results = mc.simulate(mu, nu)
-
-    # Poisson 1x2
-    try:
-        poisson_1x2 = poisson_model.predict_1x2(home, away)
-    except Exception:
-        poisson_1x2 = {"home": 0.45, "draw": 0.28, "away": 0.27}
-
-    # Elo
-    elo_1x2 = elo_model.predict_1x2(home, away)
-
-    # Glicko
-    glicko_home_win = glicko_model.predict_win_prob(home, away)
-    glicko_1x2 = {
-        "home": glicko_home_win * 0.85,
-        "draw": 0.25,
-        "away": (1 - glicko_home_win) * 0.85,
-    }
-
-    # Monte Carlo 1x2
-    mc_1x2 = {
-        "home": mc_results["home_win"],
-        "draw": mc_results["draw"],
-        "away": mc_results["away_win"],
-    }
-
-    # Bayesian 1x2 (usando mu_bayes)
-    mc_bayes_results = mc.simulate(mu_bayes, nu_bayes)
-    bayes_1x2 = {
-        "home": mc_bayes_results["home_win"],
-        "draw": mc_bayes_results["draw"],
-        "away": mc_bayes_results["away_win"],
-    }
-
-    all_predictions = {
-        "poisson": poisson_1x2,
-        "zip": zip_probs,
-        "monte_carlo": mc_1x2,
-        "elo": elo_1x2,
-        "glicko": glicko_1x2,
-        "bayesian": bayes_1x2,
-    }
-
-    # Ensemble blend
-    ensemble = EnsembleModel()
-    ensemble_probs = ensemble.blend(all_predictions)
-
-    return {
-        "predictions": all_predictions,
-        "ensemble": ensemble_probs,
-        "mc_results": mc_results,
-        "fix_info": fix_info,
-        "mu": mu, "nu": nu,
-    }
+    return mc.simulate(mu, nu)
 
 
-def analyze_fixture(row: pd.Series, model_results: Dict,
-                    odds: Dict, ensemble: EnsembleModel) -> List[Dict]:
-    """Analisa todos os mercados de um fixture e retorna value bets."""
-    fix_info = model_results["fix_info"]
-    mc = model_results["mc_results"]
-    ens_probs = model_results["ensemble"]
-    all_preds = model_results["predictions"]
+def build_bets(row: pd.Series, sim: dict, odds: dict,
+               mu: float, nu: float) -> List[dict]:
+    """Gera lista de apostas analisadas para todos os mercados disponíveis."""
+    bets = []
 
-    analyzer = MarketAnalyzer(
-        ensemble_predictions=ens_probs,
-        monte_carlo=mc,
-        odds_row=odds,
-        fixture_info=fix_info,
-    )
+    def add(market, outcome, odd, model_p):
+        if not odd or odd <= 1.0 or model_p <= 0:
+            return
+        imp  = implied_prob(odd)
+        ev   = expected_value(model_p, odd)
+        bets.append({
+            "fixture_id":   str(row.get("fixture_id", "")),
+            "home_team":    row["home_team"],
+            "away_team":    row["away_team"],
+            "league":       row.get("league_name", ""),
+            "country":      row.get("country", ""),
+            "kickoff":      str(row.get("date", "")),
+            "market":       market,
+            "outcome":      outcome,
+            "period":       "FT",
+            "bet365_odd":   round(odd, 3),
+            "implied_prob": round(imp, 4),
+            "model_prob":   round(model_p, 4),
+            "ev":           round(ev, 4),
+            "ev_pct":       round(ev * 100, 2),
+            "kelly_pct":    round(kelly_fraction(model_p, odd) * 100, 2),
+            "edge":         round(model_p - imp, 4),
+            "mu_home_ft":   round(mu, 3),
+            "mu_away_ft":   round(nu, 3),
+            "convergence":  0,
+            "is_minor":     False,
+        })
 
-    all_bets = analyzer.run_all()
+    # 1X2
+    add("1X2 — Vitória Casa",  "home",  odds.get("home_win"), sim.get("home_win", 0))
+    add("1X2 — Empate",        "draw",  odds.get("draw"),     sim.get("draw", 0))
+    add("1X2 — Vitória Fora",  "away",  odds.get("away_win"), sim.get("away_win", 0))
 
-    for bet in all_bets:
-        bet["fixture_id"] = str(row.get("fixture_id", ""))
-        bet["home_team"] = row["home_team"]
-        bet["away_team"] = row["away_team"]
-        bet["league"] = row.get("league_name", "")
-        bet["kickoff"] = str(row.get("date", ""))
-        bet["convergence"] = ensemble.convergence_score(all_preds, bet["outcome"])
-        bet["model_std"] = ensemble.std_across_models(all_preds, bet.get("outcome", "home"))
-        bet["clv_expected"] = bet["ev_pct"] * 0.6  # proxy
-        bet["models_detail"] = {m: p.get(bet["outcome"], 0) for m, p in all_preds.items()}
+    # Over/Under
+    for line, key in [(0.5,"05"),(1.5,"15"),(2.5,"25"),(3.5,"35")]:
+        add(f"Over {line}",  f"over_{key}",  odds.get(f"over_{key}"),  sim.get(f"over_{key}", 0))
+        add(f"Under {line}", f"under_{key}", odds.get(f"under_{key}"), sim.get(f"under_{key}", 0))
 
-    return filter_value_bets(all_bets)
+    # BTTS
+    add("BTTS — Sim", "btts_yes", odds.get("btts_yes"), sim.get("btts", 0))
+    add("BTTS — Não", "btts_no",  odds.get("btts_no"),  1 - sim.get("btts", 0))
 
-
-def build_daily_output(value_bets: List[Dict], fixtures: pd.DataFrame,
-                       metrics: Dict, league_profiles: List[Dict],
-                       tracker: BetTracker) -> Dict:
-    """Monta estrutura de dados para o dashboard."""
-    date_str = today_str()
-
-    # Hot bets (top 10)
-    hot_bets = sorted(value_bets, key=lambda x: x.get("ev_pct", 0), reverse=True)[:10]
-
-    # Ranking por league
-    bets_by_league: Dict[str, List] = {}
-    for b in value_bets:
-        lg = b.get("league", "Outros")
-        bets_by_league.setdefault(lg, []).append(b)
-
-    # Recent results
-    recent_df = tracker.get_recent(20)
-    recent = recent_df.to_dict("records") if not recent_df.empty else []
-
-    return {
-        "generated_at": datetime.now().isoformat(),
-        "date": date_str,
-        "total_fixtures": len(fixtures),
-        "total_value_bets": len(value_bets),
-        "hot_bets": hot_bets,
-        "all_value_bets": value_bets,
-        "bets_by_league": bets_by_league,
-        "metrics": metrics,
-        "league_profiles": league_profiles,
-        "recent_results": recent,
-    }
+    return bets
 
 
-def save_json(data: Dict, filename: str):
+def classify_tier(ev_pct: float, prob: float) -> tuple:
+    t = VB["tiers"]
+    if ev_pct >= t["elite"]["ev_min"]    and prob >= t["elite"]["prob_min"]:    return "Elite",    "🔥"
+    if ev_pct >= t["strong"]["ev_min"]   and prob >= t["strong"]["prob_min"]:   return "Forte",    "⚡"
+    if ev_pct >= t["moderate"]["ev_min"] and prob >= t["moderate"]["prob_min"]: return "Moderada", "🟡"
+    return "Sem valor", "❌"
+
+
+def filter_value_bets(bets: List[dict]) -> List[dict]:
+    out = []
+    for b in bets:
+        if (b["ev_pct"]     >= VB["min_ev_pct"] and
+            b["model_prob"] >= VB["min_probability"] and
+            b["bet365_odd"] >= VB["min_odds"]):
+            tier, emoji = classify_tier(b["ev_pct"], b["model_prob"])
+            b["tier"]       = tier
+            b["tier_emoji"] = emoji
+            out.append(b)
+    return sorted(out, key=lambda x: x["ev_pct"], reverse=True)
+
+
+def save_json(data: dict, filename: str):
     path = Path(cfg["paths"]["dashboard_output"]) / filename
     path.parent.mkdir(parents=True, exist_ok=True)
     with open(path, "w", encoding="utf-8") as f:
@@ -251,82 +148,93 @@ def save_json(data: Dict, filename: str):
     logger.info(f"Saved: {path}")
 
 
-def run_full_pipeline():
-    """Entry point principal — executa pipeline completo diário."""
+def run_full_pipeline() -> dict:
     logger.info("=" * 60)
-    logger.info("BetAnalytics Pro — Daily Pipeline Started")
+    logger.info("BetAnalytics Pro — Main Pipeline")
     logger.info("=" * 60)
-
     ensure_dirs(cfg)
 
     # 1. Coleta
-    logger.info("[1/6] Collecting data...")
-    try:
-        collected = run_collection_pipeline()
-        fixtures = collected["fixtures"]
-    except Exception as e:
-        logger.error(f"Collection failed: {e}. Using empty fixtures.")
-        fixtures = pd.DataFrame(columns=[
-            "fixture_id", "date", "league_id", "league_name", "country",
-            "home_team", "home_id", "away_team", "away_id", "venue", "referee", "status"
-        ])
+    logger.info("[1/4] Collecting data...")
+    collected = run_collection_pipeline()
+    fixtures: pd.DataFrame = collected["fixtures"]
+    odds_map: dict          = collected.get("odds_map", {})
 
-    # 2. Load histórico
-    logger.info("[2/6] Loading historical data...")
+    if fixtures.empty:
+        logger.warning("No fixtures collected today — dashboard will show 0 fixtures.")
+
+    # 2. Histórico
+    logger.info("[2/4] Loading historical data...")
     historical = load_historical_matches()
+    logger.info(f"Historical matches loaded: {len(historical)}")
 
-    # 3. Treinar modelos
-    logger.info("[3/6] Training models...")
-    poisson_model = PoissonModel()
+    # 3. Modelos
+    logger.info("[3/4] Training models...")
     elo_model = DynamicElo(k=cfg["models"]["elo_k_factor"])
-    glicko_model = GlickoModel()
-
     if len(historical) >= cfg["models"]["min_matches_for_model"]:
         try:
-            poisson_model.fit(historical)
             elo_model.fit_history(historical)
         except Exception as e:
-            logger.warning(f"Model fitting error: {e}")
+            logger.warning(f"Elo fit failed: {e}")
 
-    ensemble = EnsembleModel()
-
-    # 4. Analisar fixtures
-    logger.info("[4/6] Analyzing fixtures...")
-    all_value_bets = []
+    # 4. Analisa cada fixture
+    logger.info(f"[4/4] Analyzing {len(fixtures)} fixtures...")
+    all_bets: List[dict] = []
 
     for _, row in fixtures.iterrows():
         try:
-            odds = build_mock_odds(row)
-            model_results = run_models_for_fixture(
-                row, historical, poisson_model, elo_model, glicko_model
-            )
-            bets = analyze_fixture(row, model_results, odds, ensemble)
-            all_value_bets.extend(bets)
+            mu, nu = estimate_lambdas(row, historical)
+            sim    = simulate_fixture(mu, nu)
+
+            # Busca odds por par de times
+            key  = f"{row['home_team'].lower()}|{row['away_team'].lower()}"
+            odds = odds_map.get(key, {})
+
+            bets = build_bets(row, sim, odds, mu, nu)
+            all_bets.extend(bets)
         except Exception as e:
-            logger.error(f"Error on fixture {row.get('home_team')} vs {row.get('away_team')}: {e}")
+            logger.error(f"Error on {row.get('home_team')} vs {row.get('away_team')}: {e}")
 
-    logger.info(f"Found {len(all_value_bets)} value bets")
+    value_bets = filter_value_bets(all_bets)
+    logger.info(f"Value bets found: {len(value_bets)} (from {len(all_bets)} analyzed)")
 
-    # 5. Tracking
-    logger.info("[5/6] Tracking & metrics...")
+    # Tracking
     tracker = BetTracker()
-    for bet in all_value_bets:
-        tracker.register_bet(bet, stake_units=bet.get("kelly_pct", 1.0))
-
+    for b in value_bets:
+        try:
+            tracker.register_bet(b)
+        except Exception:
+            pass
     metrics = tracker.compute_metrics(days=30)
 
     # League profiles
     profiler = LeagueProfiler()
     league_profiles = profiler.profile_all(historical) if not historical.empty else []
 
-    # 6. Build output
-    logger.info("[6/6] Building output...")
-    output = build_daily_output(all_value_bets, fixtures, metrics, league_profiles, tracker)
+    # Fixtures como lista para o dashboard
+    fixtures_list = fixtures.to_dict("records") if not fixtures.empty else []
 
-    save_json(output, "data.json")
-    logger.info("Pipeline complete. Dashboard data ready.")
-    return output
+    # Recentes
+    recent_df = tracker.get_recent(20)
+    recent    = recent_df.to_dict("records") if not recent_df.empty else []
 
+    hot_bets   = sorted(value_bets, key=lambda x: x["ev_pct"], reverse=True)[:10]
 
-if __name__ == "__main__":
-    run_full_pipeline()
+    result = {
+        "generated_at":    datetime.now().isoformat(),
+        "date":            today_str(),
+        "total_fixtures":  len(fixtures),
+        "total_value_bets":len(value_bets),
+        "hot_bets":        hot_bets,
+        "all_value_bets":  value_bets,
+        "fixtures_list":   fixtures_list,
+        "bets_by_league":  {},
+        "metrics":         metrics,
+        "league_profiles": league_profiles,
+        "recent_results":  recent,
+        "minor":           {},
+    }
+
+    logger.info("=" * 60)
+    logger.info(f"Pipeline complete — fixtures: {len(fixtures)}, value bets: {len(value_bets)}")
+    return result

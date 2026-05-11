@@ -2,10 +2,8 @@ name: BetAnalytics Pro — Daily Pipeline
 
 on:
   schedule:
-    # Roda todo dia às 09:00 BRT (12:00 UTC) — após odds de abertura Bet365
-    - cron: '0 12 * * *'
-    # Segunda rodada às 14:00 BRT (17:00 UTC) — atualização mid-day
-    - cron: '0 17 * * *'
+    - cron: '0 12 * * *'   # 09:00 BRT
+    - cron: '0 17 * * *'   # 14:00 BRT
   workflow_dispatch:
     inputs:
       skip_collect:
@@ -37,7 +35,6 @@ jobs:
         uses: actions/setup-python@v5
         with:
           python-version: '3.11'
-          cache: 'pip'
 
       - name: Install dependencies
         run: |
@@ -54,13 +51,6 @@ jobs:
           restore-keys: |
             betanalytics-historical-${{ runner.os }}-
 
-      - name: Create .env from secrets
-        run: |
-          echo "FOOTBALL_DATA_API_KEY=${{ secrets.FOOTBALL_DATA_API_KEY }}" >> .env
-          echo "API_FOOTBALL_KEY=${{ secrets.API_FOOTBALL_KEY }}" >> .env
-          echo "ODDS_API_KEY=${{ secrets.ODDS_API_KEY }}" >> .env
-          echo "OPENWEATHER_KEY=${{ secrets.OPENWEATHER_KEY }}" >> .env
-
       - name: Run BetAnalytics pipeline
         env:
           FOOTBALL_DATA_API_KEY: ${{ secrets.FOOTBALL_DATA_API_KEY }}
@@ -68,6 +58,7 @@ jobs:
           ODDS_API_KEY: ${{ secrets.ODDS_API_KEY }}
           OPENWEATHER_KEY: ${{ secrets.OPENWEATHER_KEY }}
         run: |
+          set -e
           ARGS=""
           if [ "${{ github.event.inputs.skip_collect }}" = "true" ]; then
             ARGS="$ARGS --skip-collect"
@@ -75,7 +66,23 @@ jobs:
           if [ "${{ github.event.inputs.only_dashboard }}" = "true" ]; then
             ARGS="$ARGS --only-dashboard"
           fi
+          echo "=== Running pipeline ==="
           python main.py $ARGS
+          echo "=== Pipeline complete ==="
+          echo "=== docs/ contents ==="
+          ls -lh docs/
+          echo "=== data.json preview ==="
+          python -c "
+          import json
+          with open('docs/data.json') as f:
+              d = json.load(f)
+          print('total_fixtures:', d.get('total_fixtures'))
+          print('total_value_bets:', d.get('total_value_bets'))
+          print('date:', d.get('date'))
+          minor = d.get('minor', {})
+          print('minor_fixtures:', minor.get('minor_fixtures'))
+          print('minor_value_bets:', len(minor.get('minor_value_bets', [])))
+          "
 
       - name: Commit historical data updates
         run: |

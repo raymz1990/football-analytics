@@ -1,285 +1,373 @@
-# src/collectors/collector.py — Data collection pipeline
+# src/collectors/collector.py
 import os
-import json
 import time
 import requests
 import pandas as pd
-from datetime import datetime, timedelta
 from pathlib import Path
 from src.utils import load_config, get_logger, today_str
 
-logger = get_logger("collector")
-cfg = load_config()
+logger   = get_logger("collector")
+cfg      = load_config()
 
-HEADERS_FD = {"X-Auth-Token": os.getenv("FOOTBALL_DATA_API_KEY", "")}
+API_FOOTBALL_KEY = os.getenv("API_FOOTBALL_KEY", "")
+ODDS_KEY         = os.getenv("ODDS_API_KEY", "")
+WEATHER_KEY      = os.getenv("OPENWEATHER_KEY", "")
+FD_KEY           = os.getenv("FOOTBALL_DATA_API_KEY", "")
+
 HEADERS_AF = {
-    "X-RapidAPI-Key": os.getenv("API_FOOTBALL_KEY", ""),
-    "X-RapidAPI-Host": "api-football-v1.p.rapidapi.com"
+    "X-RapidAPI-Key":  API_FOOTBALL_KEY,
+    "X-RapidAPI-Host": "api-football-v1.p.rapidapi.com",
 }
-ODDS_KEY = os.getenv("ODDS_API_KEY", "")
-WEATHER_KEY = os.getenv("OPENWEATHER_KEY", "")
+HEADERS_FD = {"X-Auth-Token": FD_KEY}
+
+BASE_AF   = cfg["apis"]["api_football"]["base_url"]
+BASE_ODDS = cfg["apis"]["odds_api"]["base_url"]
+BASE_FD   = cfg["apis"]["football_data"]["base_url"]
 
 
-def _get(url: str, headers: dict, params: dict = None, retries: int = 3) -> dict:
+def _check_keys():
+    logger.info(f"FOOTBALL_DATA_API_KEY: {'SET ✅' if FD_KEY   else 'MISSING ❌'}")
+    logger.info(f"API_FOOTBALL_KEY:      {'SET ✅' if API_FOOTBALL_KEY else 'MISSING ❌'}")
+    logger.info(f"ODDS_API_KEY:          {'SET ✅' if ODDS_KEY else 'MISSING ❌'}")
+
+
+def _get(url, headers, params=None, retries=3, label="") -> dict:
     for i in range(retries):
         try:
-            r = requests.get(url, headers=headers, params=params, timeout=15)
+            r = requests.get(url, headers=headers, params=params, timeout=20)
+            if r.status_code == 429:
+                wait = 61
+                logger.warning(f"Rate limit on {label or url} — sleeping {wait}s")
+                time.sleep(wait)
+                continue
+            if r.status_code in (403, 401):
+                logger.error(f"Auth error {r.status_code} on {label or url} — check API key/plan")
+                return {}
             r.raise_for_status()
             return r.json()
         except Exception as e:
-            logger.warning(f"Request failed ({i+1}/{retries}): {e}")
-            time.sleep(2 ** i)
+            logger.warning(f"[attempt {i+1}/{retries}] {label or url}: {e}")
+            if i < retries - 1:
+                time.sleep(2 ** i)
     return {}
 
 
-# ─── Fixtures ────────────────────────────────────────────────────────────────
+# ═══════════════════════════════════════════════════════════════════
+# SOURCE 1: football-data.org  (free, sem precisar de plano pago)
+# Cobre: PL, La Liga, Serie A, Bundesliga, Ligue 1, CL, EL
+# ═══════════════════════════════════════════════════════════════════
 
-def fetch_fixtures_today() -> pd.DataFrame:
-    """Busca todos os jogos do dia via API-Football."""
+# IDs das ligas no football-data.org
+FD_COMPETITIONS = [
+    "PL",   # Premier League
+    "PD",   # La Liga
+    "SA",   # Serie A
+    "BL1",  # Bundesliga
+    "FL1",  # Ligue 1
+    "CL",   # Champions League
+    "EL",   # Europa League
+    "PPL",  # Primeira Liga
+    "DED",  # Eredivisie
+    "BSA",  # Brasileirão
+]
+
+def fetch_fixtures_football_data() -> pd.DataFrame:
+    """
+    Busca fixtures do dia via football-data.org.
+    Plano free permite 10 req/min e cobre as principais ligas.
+    """
     date = today_str()
-    url = f"{cfg['apis']['api_football']['base_url']}/fixtures"
-    data = _get(url, HEADERS_AF, params={"date": date, "timezone": "America/Sao_Paulo"})
-    
+    logger.info(f"[football-data.org] Fetching fixtures for {date}...")
     rows = []
-    for f in data.get("response", []):
-        fix = f["fixture"]
-        teams = f["teams"]
-        league = f["league"]
-        rows.append({
-            "fixture_id": fix["id"],
-            "date": fix["date"],
-            "league_id": league["id"],
-            "league_name": league["name"],
-            "country": league["country"],
-            "home_team": teams["home"]["name"],
-            "home_id": teams["home"]["id"],
-            "away_team": teams["away"]["name"],
-            "away_id": teams["away"]["id"],
-            "venue": fix.get("venue", {}).get("name", ""),
-            "referee": fix.get("referee", ""),
-            "status": fix["status"]["short"],
-        })
-    
-    df = pd.DataFrame(rows)
-    _save_raw(df, f"fixtures_{date}.csv")
-    logger.info(f"Fetched {len(df)} fixtures for {date}")
-    return df
 
+    for comp in FD_COMPETITIONS:
+        url  = f"{BASE_FD}/competitions/{comp}/matches"
+        data = _get(url, HEADERS_FD,
+                    params={"dateFrom": date, "dateTo": date},
+                    label=f"FD/{comp}")
+        matches = data.get("matches", [])
+        logger.info(f"  {comp}: {len(matches)} matches")
 
-# ─── Odds ────────────────────────────────────────────────────────────────────
-
-def fetch_odds_bet365(sport: str = "soccer") -> pd.DataFrame:
-    """Busca odds Bet365 para jogos do dia."""
-    url = f"{cfg['apis']['odds_api']['base_url']}/sports/{sport}/odds"
-    params = {
-        "apiKey": ODDS_KEY,
-        "regions": "eu",
-        "markets": "h2h,totals,btts",
-        "bookmakers": "bet365",
-        "dateFormat": "iso",
-    }
-    data = _get(url, {}, params=params)
-    
-    rows = []
-    for event in data if isinstance(data, list) else []:
-        home = event.get("home_team", "")
-        away = event.get("away_team", "")
-        commence = event.get("commence_time", "")
-        for bm in event.get("bookmakers", []):
-            if bm["key"] != "bet365":
-                continue
-            for market in bm.get("markets", []):
-                for outcome in market.get("outcomes", []):
-                    rows.append({
-                        "event_id": event["id"],
-                        "home_team": home,
-                        "away_team": away,
-                        "commence_time": commence,
-                        "market": market["key"],
-                        "outcome": outcome["name"],
-                        "price": outcome["price"],
-                        "point": outcome.get("point", None),
-                    })
-    
-    df = pd.DataFrame(rows)
-    _save_raw(df, f"odds_{today_str()}.csv")
-    logger.info(f"Fetched {len(df)} odds records")
-    return df
-
-
-def fetch_odds_movement(event_id: str) -> list:
-    """Histórico de movimento de odds para um evento."""
-    url = f"{cfg['apis']['odds_api']['base_url']}/sports/soccer/odds-history"
-    params = {"apiKey": ODDS_KEY, "eventId": event_id, "bookmakers": "bet365"}
-    data = _get(url, {}, params=params)
-    return data if isinstance(data, list) else []
-
-
-# ─── Historical Stats ─────────────────────────────────────────────────────────
-
-def fetch_team_stats(team_id: int, league_id: int, season: int = 2024) -> dict:
-    url = f"{cfg['apis']['api_football']['base_url']}/teams/statistics"
-    data = _get(url, HEADERS_AF, params={
-        "team": team_id, "league": league_id, "season": season
-    })
-    return data.get("response", {})
-
-
-def fetch_recent_matches(team_id: int, last: int = 15) -> pd.DataFrame:
-    url = f"{cfg['apis']['api_football']['base_url']}/fixtures"
-    data = _get(url, HEADERS_AF, params={"team": team_id, "last": last})
-    rows = []
-    for f in data.get("response", []):
-        goals = f.get("goals", {})
-        teams = f["teams"]
-        is_home = teams["home"]["id"] == team_id
-        rows.append({
-            "fixture_id": f["fixture"]["id"],
-            "date": f["fixture"]["date"],
-            "is_home": is_home,
-            "team_goals": goals.get("home" if is_home else "away", 0),
-            "opp_goals": goals.get("away" if is_home else "home", 0),
-            "result": ("W" if (goals.get("home",0) > goals.get("away",0)) == is_home else
-                       "D" if goals.get("home",0) == goals.get("away",0) else "L"),
-        })
-    return pd.DataFrame(rows)
-
-
-def fetch_xg_data(fixture_id: int) -> dict:
-    """xG via API-Football statistics endpoint."""
-    url = f"{cfg['apis']['api_football']['base_url']}/fixtures/statistics"
-    data = _get(url, HEADERS_AF, params={"fixture": fixture_id})
-    xg = {}
-    for team_data in data.get("response", []):
-        team_name = team_data["team"]["name"]
-        for stat in team_data.get("statistics", []):
-            if stat["type"] == "Expected Goals":
-                xg[team_name] = float(stat["value"] or 0)
-    return xg
-
-
-# ─── Injuries & Suspensions ───────────────────────────────────────────────────
-
-def fetch_injuries(team_id: int, fixture_id: int) -> pd.DataFrame:
-    url = f"{cfg['apis']['api_football']['base_url']}/injuries"
-    data = _get(url, HEADERS_AF, params={"team": team_id, "fixture": fixture_id})
-    rows = []
-    for p in data.get("response", []):
-        player = p.get("player", {})
-        rows.append({
-            "player_id": player.get("id"),
-            "player_name": player.get("name"),
-            "type": p.get("type", ""),
-            "reason": p.get("reason", ""),
-        })
-    return pd.DataFrame(rows)
-
-
-# ─── Referee ──────────────────────────────────────────────────────────────────
-
-def fetch_referee_history(referee_name: str, season: int = 2024) -> pd.DataFrame:
-    """Busca histórico de partidas do árbitro."""
-    url = f"{cfg['apis']['api_football']['base_url']}/fixtures"
-    # Filtra por árbitro nos fixtures da temporada
-    data = _get(url, HEADERS_AF, params={"season": season, "timezone": "UTC"})
-    rows = []
-    for f in data.get("response", []):
-        if referee_name.lower() in (f["fixture"].get("referee") or "").lower():
-            goals = f.get("goals", {})
+        for m in matches:
+            home = m.get("homeTeam", {})
+            away = m.get("awayTeam", {})
             rows.append({
-                "fixture_id": f["fixture"]["id"],
-                "date": f["fixture"]["date"],
-                "home_goals": goals.get("home", 0),
-                "away_goals": goals.get("away", 0),
-                "total_goals": (goals.get("home", 0) or 0) + (goals.get("away", 0) or 0),
+                "fixture_id":  m.get("id"),
+                "date":        m.get("utcDate", ""),
+                "league_id":   comp,
+                "league_name": m.get("competition", {}).get("name", comp),
+                "country":     m.get("area", {}).get("name", ""),
+                "home_team":   home.get("shortName") or home.get("name", ""),
+                "home_id":     home.get("id"),
+                "away_team":   away.get("shortName") or away.get("name", ""),
+                "away_id":     away.get("id"),
+                "venue":       "",
+                "referee":     "",
+                "status":      m.get("status", ""),
+                "minor_focus": False,
+                "source":      "football-data.org",
             })
-    return pd.DataFrame(rows)
+        time.sleep(6.5)  # respeita 10 req/min
+
+    df = pd.DataFrame(rows)
+    logger.info(f"[football-data.org] Total: {len(df)} fixtures")
+    return df
 
 
-# ─── Weather ──────────────────────────────────────────────────────────────────
+# ═══════════════════════════════════════════════════════════════════
+# SOURCE 2: API-Football via RapidAPI (por liga, não por data global)
+# Só usa se a chave funcionar — testa primeiro
+# ═══════════════════════════════════════════════════════════════════
 
-def fetch_weather(city: str) -> dict:
-    if not WEATHER_KEY or not city:
-        return {}
-    url = f"{cfg['apis']['openweather']['base_url']}/weather"
-    data = _get(url, {}, params={"q": city, "appid": WEATHER_KEY, "units": "metric"})
-    return {
-        "temp_c": data.get("main", {}).get("temp"),
-        "condition": data.get("weather", [{}])[0].get("main", ""),
-        "wind_kmh": data.get("wind", {}).get("speed", 0) * 3.6,
-        "humidity": data.get("main", {}).get("humidity"),
-    }
+# Ligas tier 1-2 com IDs no API-Football
+AF_LEAGUE_IDS = [
+    39,   # Premier League
+    140,  # La Liga
+    135,  # Serie A
+    78,   # Bundesliga
+    61,   # Ligue 1
+    71,   # Brasileirão A
+    94,   # Primeira Liga
+    88,   # Eredivisie
+    203,  # Süper Lig
+    179,  # Scottish Prem
+    253,  # MLS
+    128,  # Argentine Primera
+    292,  # K League 1
+    98,   # J1 League
+    235,  # Russian Premier
+    2,    # Champions League
+    3,    # Europa League
+    848,  # Conference League
+]
+
+def _test_api_football() -> bool:
+    """Testa se a chave do API-Football funciona."""
+    data = _get(f"{BASE_AF}/status", HEADERS_AF, label="AF/status")
+    ok = data.get("response", {}).get("account") is not None or "response" in data
+    logger.info(f"[API-Football] Key test: {'OK ✅' if ok else 'FAILED ❌'} — response keys: {list(data.keys())[:5]}")
+    return ok
 
 
-# ─── Player Props ─────────────────────────────────────────────────────────────
+def fetch_fixtures_api_football() -> pd.DataFrame:
+    """Busca fixtures por liga (contorna a restrição do plano free)."""
+    date = today_str()
+    season = date[:4]  # ex: "2026"
+    rows = []
 
-def fetch_player_stats(player_id: int, league_id: int, season: int = 2024) -> dict:
-    url = f"{cfg['apis']['api_football']['base_url']}/players"
-    data = _get(url, HEADERS_AF, params={
-        "id": player_id, "league": league_id, "season": season
-    })
-    resp = data.get("response", [])
-    return resp[0] if resp else {}
+    for league_id in AF_LEAGUE_IDS:
+        data = _get(f"{BASE_AF}/fixtures", HEADERS_AF,
+                    params={"league": league_id, "date": date, "season": season,
+                            "timezone": "America/Sao_Paulo"},
+                    label=f"AF/league/{league_id}")
+
+        if not data:
+            continue
+
+        errors = data.get("errors", {})
+        if errors:
+            logger.warning(f"  League {league_id} errors: {errors}")
+            continue
+
+        response = data.get("response", [])
+        for f in response:
+            fix    = f["fixture"]
+            teams  = f["teams"]
+            league = f["league"]
+            rows.append({
+                "fixture_id":  fix["id"],
+                "date":        fix["date"],
+                "league_id":   league["id"],
+                "league_name": league["name"],
+                "country":     league["country"],
+                "home_team":   teams["home"]["name"],
+                "home_id":     teams["home"]["id"],
+                "away_team":   teams["away"]["name"],
+                "away_id":     teams["away"]["id"],
+                "venue":       (fix.get("venue") or {}).get("name", ""),
+                "referee":     fix.get("referee") or "",
+                "status":      fix["status"]["short"],
+                "minor_focus": False,
+                "source":      "api-football",
+            })
+        time.sleep(0.8)
+
+    df = pd.DataFrame(rows)
+    logger.info(f"[API-Football] Total: {len(df)} fixtures")
+    return df
 
 
-def fetch_lineup(fixture_id: int) -> dict:
-    url = f"{cfg['apis']['api_football']['base_url']}/fixtures/lineups"
-    data = _get(url, HEADERS_AF, params={"fixture": fixture_id})
-    return data.get("response", [])
+# ═══════════════════════════════════════════════════════════════════
+# SOURCE 3: The Odds API  (odds Bet365)
+# Mercados: h2h (1X2) + totals (Over/Under)
+# ═══════════════════════════════════════════════════════════════════
+
+# sport_keys da The Odds API para as principais ligas
+ODDS_SPORT_KEYS = [
+    "soccer_epl",
+    "soccer_spain_la_liga",
+    "soccer_italy_serie_a",
+    "soccer_germany_bundesliga",
+    "soccer_france_ligue_one",
+    "soccer_brazil_campeonato",
+    "soccer_portugal_primeira_liga",
+    "soccer_netherlands_eredivisie",
+    "soccer_turkey_super_league",
+    "soccer_uefa_champs_league",
+    "soccer_uefa_europa_league",
+    "soccer_uefa_conference_league",
+    "soccer_usa_mls",
+    "soccer_argentina_primera_division",
+    "soccer_efl_champ",
+    "soccer_spain_segunda_division",
+]
+
+def fetch_odds_bet365() -> pd.DataFrame:
+    """
+    Busca odds Bet365 via The Odds API.
+    Mercados: h2h (1X2) e totals (Over/Under).
+    Nota: 'btts' não é suportado nessa API — removido.
+    """
+    logger.info("[The Odds API] Fetching Bet365 odds...")
+    rows = []
+
+    for sport_key in ODDS_SPORT_KEYS:
+        url    = f"{BASE_ODDS}/sports/{sport_key}/odds"
+        params = {
+            "apiKey":     ODDS_KEY,
+            "regions":    "eu",
+            "markets":    "h2h,totals",   # btts removido — causa 422
+            "bookmakers": "bet365",
+            "dateFormat": "iso",
+        }
+        data = _get(url, {}, params=params, label=f"Odds/{sport_key}")
+        if not isinstance(data, list):
+            continue
+
+        for event in data:
+            home = event.get("home_team", "")
+            away = event.get("away_team", "")
+            for bm in event.get("bookmakers", []):
+                if bm["key"] != "bet365":
+                    continue
+                for mkt in bm.get("markets", []):
+                    for outcome in mkt.get("outcomes", []):
+                        rows.append({
+                            "sport_key":     sport_key,
+                            "event_id":      event["id"],
+                            "home_team":     home,
+                            "away_team":     away,
+                            "commence_time": event.get("commence_time", ""),
+                            "market":        mkt["key"],
+                            "outcome":       outcome["name"],
+                            "price":         outcome["price"],
+                            "point":         outcome.get("point"),
+                        })
+        time.sleep(0.3)
+
+    df = pd.DataFrame(rows)
+    logger.info(f"[The Odds API] Total: {len(df)} odds records across {df['sport_key'].nunique() if not df.empty else 0} sports")
+    _save_raw(df, f"odds_{today_str()}.csv")
+    return df
 
 
-# ─── Persistence ─────────────────────────────────────────────────────────────
+def build_odds_map(odds_df: pd.DataFrame) -> dict:
+    """Constrói dict {home|away: {market: odd}} para lookup rápido."""
+    omap = {}
+    if odds_df.empty:
+        return omap
+
+    for _, row in odds_df.iterrows():
+        key = f"{str(row['home_team']).lower()}|{str(row['away_team']).lower()}"
+        omap.setdefault(key, {})
+        mkt     = row["market"]
+        outcome = str(row["outcome"]).lower()
+        price   = float(row["price"])
+        pt      = row.get("point")
+
+        if mkt == "h2h":
+            if "draw" in outcome:
+                omap[key]["draw"] = price
+            elif outcome == str(row["home_team"]).lower():
+                omap[key]["home_win"] = price
+            else:
+                omap[key]["away_win"] = price
+
+        elif mkt == "totals" and pt is not None:
+            suffix = str(pt).replace(".", "")
+            if "over" in outcome:
+                omap[key][f"over_{suffix}"] = price
+            else:
+                omap[key][f"under_{suffix}"] = price
+
+    # Fallback h2h por posição (quando os nomes não batem)
+    h2h_events = odds_df[odds_df["market"] == "h2h"].groupby(["home_team", "away_team"])
+    for (home, away), grp in h2h_events:
+        key = f"{home.lower()}|{away.lower()}"
+        prices = grp.sort_values("outcome")["price"].tolist()
+        if len(prices) >= 3 and "home_win" not in omap.get(key, {}):
+            omap.setdefault(key, {})
+            omap[key].setdefault("home_win", prices[0])
+            omap[key].setdefault("draw",     prices[1])
+            omap[key].setdefault("away_win", prices[2])
+
+    return omap
+
+
+# ═══════════════════════════════════════════════════════════════════
+# PIPELINE COMPLETO
+# ═══════════════════════════════════════════════════════════════════
 
 def _save_raw(df: pd.DataFrame, filename: str):
     path = Path(cfg["paths"]["data_raw"]) / filename
     path.parent.mkdir(parents=True, exist_ok=True)
     df.to_csv(path, index=False)
-    logger.debug(f"Saved raw data: {path}")
 
 
 def load_historical(filename: str) -> pd.DataFrame:
     path = Path(cfg["paths"]["data_historical"]) / filename
-    if path.exists():
-        return pd.read_csv(path)
-    return pd.DataFrame()
+    return pd.read_csv(path) if path.exists() else pd.DataFrame()
 
-
-# ─── Full Pipeline ────────────────────────────────────────────────────────────
 
 def run_collection_pipeline() -> dict:
-    """Executa pipeline completo de coleta."""
-    logger.info("=== Starting data collection pipeline ===")
-    
-    fixtures = fetch_fixtures_today()
-    odds = fetch_odds_bet365()
-    
-    results = {
+    logger.info("=== Starting collection pipeline ===")
+    _check_keys()
+
+    # --- Fixtures: tenta football-data.org primeiro (mais confiável no free) ---
+    fixtures = pd.DataFrame()
+
+    if FD_KEY:
+        fixtures = fetch_fixtures_football_data()
+    else:
+        logger.warning("FOOTBALL_DATA_API_KEY not set — skipping football-data.org")
+
+    # Se API-Football funcionar, complementa com mais ligas
+    if API_FOOTBALL_KEY:
+        af_ok = _test_api_football()
+        if af_ok:
+            af_fixtures = fetch_fixtures_api_football()
+            if not af_fixtures.empty:
+                # Remove duplicatas por fixture_id
+                combined = pd.concat([fixtures, af_fixtures], ignore_index=True)
+                fixtures = combined.drop_duplicates(
+                    subset=["home_team", "away_team", "date"], keep="first"
+                )
+                logger.info(f"Combined fixtures (FD + AF): {len(fixtures)}")
+    else:
+        logger.warning("API_FOOTBALL_KEY not set — skipping API-Football")
+
+    # --- Odds ---
+    odds_df  = pd.DataFrame()
+    odds_map = {}
+    if ODDS_KEY:
+        odds_df  = fetch_odds_bet365()
+        odds_map = build_odds_map(odds_df)
+    else:
+        logger.warning("ODDS_API_KEY not set — no odds data")
+
+    logger.info(f"=== Collection done: {len(fixtures)} fixtures, {len(odds_map)} events with odds ===")
+    return {
         "fixtures": fixtures,
-        "odds": odds,
-        "team_stats": {},
-        "injuries": {},
-        "weather": {},
+        "odds":     odds_df,
+        "odds_map": odds_map,
     }
-    
-    for _, row in fixtures.iterrows():
-        fid = row["fixture_id"]
-        
-        # Team stats
-        for side in ["home", "away"]:
-            tid = row[f"{side}_id"]
-            key = f"{side}_{tid}"
-            results["team_stats"][key] = fetch_team_stats(tid, row["league_id"])
-            time.sleep(0.5)
-        
-        # Injuries
-        results["injuries"][fid] = {
-            "home": fetch_injuries(row["home_id"], fid),
-            "away": fetch_injuries(row["away_id"], fid),
-        }
-        
-        # Weather
-        if row.get("venue"):
-            results["weather"][fid] = fetch_weather(row.get("country", ""))
-    
-    logger.info("=== Collection pipeline complete ===")
-    return results
