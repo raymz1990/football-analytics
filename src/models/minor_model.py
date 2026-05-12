@@ -260,7 +260,7 @@ def filter_minor_value_bets(bets: List[Dict]) -> List[Dict]:
         odd  = b.get("bet365_odd", 1.0)
 
         # Thresholds ligeiramente mais altos para compensar incerteza
-        if ev >= VB["min_ev_pct"] + 2 and prob >= VB["min_probability"] and odd >= VB["min_odds"]:
+        if ev >= VB.get("minor_ev_pct", VB["min_ev_pct"]) and prob >= VB["min_probability"] and odd >= VB["min_odds"]:
             tier, emoji = _tier(ev, prob)
             b["tier"] = tier
             b["tier_emoji"] = emoji

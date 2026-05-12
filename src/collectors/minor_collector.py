@@ -1,142 +1,143 @@
-# src/collectors/minor_collector.py
-# Coleta para ligas menores via The Odds API (sport_keys)
-# API-Football só é usado se a chave funcionar e por liga específica.
-
-import os
-import time
-import requests
-import pandas as pd
-from pathlib import Path
+# src/collectors/minor_collector.py — sport_keys validados da documentação oficial
+import os, time, requests, pandas as pd
 from typing import Dict, List
-from src.utils import load_config, get_logger, today_str
+from src.utils import load_config, get_logger
 
-logger           = get_logger("collector.minor")
-cfg              = load_config()
-API_FOOTBALL_KEY = os.getenv("API_FOOTBALL_KEY", "")
-ODDS_KEY         = os.getenv("ODDS_API_KEY", "")
-BASE_AF          = cfg["apis"]["api_football"]["base_url"]
-BASE_ODDS        = cfg["apis"]["odds_api"]["base_url"]
-HEADERS_AF       = {
-    "X-RapidAPI-Key":  API_FOOTBALL_KEY,
-    "X-RapidAPI-Host": "api-football-v1.p.rapidapi.com",
-}
+logger   = get_logger("collector.minor")
+cfg      = load_config()
+ODDS_KEY = os.getenv("ODDS_API_KEY", "")
+BASE     = cfg["apis"]["odds_api"]["base_url"]
 
-# ── Sport keys das ligas menores na The Odds API ─────────────────────────────
+# ── Sport keys 100% validados em the-odds-api.com/sports-odds-data/sports-apis.html
 MINOR_SPORT_KEYS = [
     # Europa
-    "soccer_iceland_premier_league",
-    "soccer_norway_eliteserien",
-    "soccer_sweden_allsvenskan",
-    "soccer_finland_veikkausliiga",
-    "soccer_denmark_superliga",
-    "soccer_poland_ekstraklasa",
-    "soccer_scotland_premiership",
+    "soccer_austria_bundesliga",
     "soccer_belgium_first_div",
+    "soccer_denmark_superliga",
+    "soccer_finland_veikkausliiga",
+    "soccer_france_ligue_two",
+    "soccer_germany_bundesliga2",
+    "soccer_germany_liga3",
     "soccer_greece_super_league",
-    "soccer_switzerland_superleague",
+    "soccer_italy_serie_b",
+    "soccer_league_of_ireland",
+    "soccer_norway_eliteserien",
+    "soccer_poland_ekstraklasa",
     "soccer_russia_premier_league",
-    # Oceania / Ásia-Pacífico
+    "soccer_scotland_premiership",       # chave correta para Scottish Prem
+    "soccer_spl",                        # Scottish Premier League (alternativa)
+    "soccer_spain_segunda_division",
+    "soccer_sweden_allsvenskan",
+    "soccer_sweden_superettan",
+    "soccer_switzerland_superleague",
+    "soccer_turkey_super_league",
+    "soccer_efl_champ",
+    "soccer_england_league1",
+    "soccer_england_league2",
+    # Américas
+    "soccer_argentina_primera_division",
+    "soccer_brazil_serie_b",
+    "soccer_chile_campeonato",           # correto (era chile_primera_division — errado)
+    "soccer_conmebol_copa_libertadores",
+    "soccer_conmebol_copa_sudamericana",
+    "soccer_mexico_ligamx",
+    "soccer_usa_mls",
+    "soccer_concacaf_leagues_cup",
+    # Ásia / Oceania
     "soccer_australia_aleague",
     "soccer_japan_j_league",
     "soccer_korea_kleague1",
-    # Américas
-    "soccer_argentina_primera_division",
-    "soccer_chile_primera_division",
-    "soccer_colombia_primera_a",
-    "soccer_usa_usl_championship",
-    "soccer_canada_premier_league",
-    # África / Oriente Médio
-    "soccer_south_africa_premier_division",
-    "soccer_saudi_arabias_pro_league",
-    "soccer_israel_premier_league",
+    "soccer_china_superleague",
+    "soccer_saudi_arabia_pro_league",    # correto (era saudi_arabias — errado)
+    # Copas
+    "soccer_fa_cup",
+    "soccer_germany_dfb_pokal",
+    "soccer_italy_coppa_italia",
+    "soccer_spain_copa_del_rey",
+    "soccer_france_coupe_de_france",
+    "soccer_uefa_europa_conference_league",
+    "soccer_uefa_champs_league_qualification",
 ]
 
 
-def _get(url, headers, params=None, retries=3, label="") -> dict:
+def _get(url, params, label="", retries=2) -> list:
     for i in range(retries):
         try:
-            r = requests.get(url, headers=headers, params=params, timeout=20)
-            if r.status_code in (403, 401):
-                logger.error(f"Auth error {r.status_code} — {label}")
-                return {}
+            r = requests.get(url, params=params, timeout=15)
+            if r.status_code == 404:
+                logger.debug(f"404 — key not active today: {label}")
+                return []
+            if r.status_code in (401, 403):
+                logger.error(f"Auth error {r.status_code}: {label}")
+                return []
+            if r.status_code == 422:
+                logger.debug(f"422 — market not supported: {label}")
+                return []
             if r.status_code == 429:
                 logger.warning(f"Rate limit — sleeping 61s ({label})")
                 time.sleep(61)
                 continue
             r.raise_for_status()
-            return r.json()
+            data = r.json()
+            return data if isinstance(data, list) else []
         except Exception as e:
-            logger.warning(f"[attempt {i+1}/{retries}] {label}: {e}")
+            logger.warning(f"[{i+1}/{retries}] {label}: {e}")
             if i < retries - 1:
-                time.sleep(2 ** i)
-    return {}
+                time.sleep(2)
+    return []
 
 
-def fetch_minor_odds_by_sport(sport_key: str) -> List[dict]:
-    """Busca odds Bet365 para um sport_key — mercados h2h e totals."""
-    url    = f"{BASE_ODDS}/sports/{sport_key}/odds"
-    params = {
-        "apiKey":     ODDS_KEY,
-        "regions":    "eu,uk,au",
-        "markets":    "h2h,totals",
-        "bookmakers": "bet365",
-        "dateFormat": "iso",
-    }
-    data = _get(url, {}, params=params, label=f"Minor/{sport_key}")
-    return data if isinstance(data, list) else []
-
-
-def fetch_minor_ht_odds(sport_key: str) -> List[dict]:
-    """Busca odds de HT quando disponível."""
-    url    = f"{BASE_ODDS}/sports/{sport_key}/odds"
-    params = {
-        "apiKey":     ODDS_KEY,
-        "regions":    "eu,uk",
-        "markets":    "h2h_h1,totals_h1",
-        "bookmakers": "bet365",
-        "dateFormat": "iso",
-    }
-    data = _get(url, {}, params=params, label=f"MinorHT/{sport_key}")
-    return data if isinstance(data, list) else []
-
-
-def _parse_events(events: List[dict], is_ht: bool = False) -> List[dict]:
-    """Extrai fixtures e odds de uma lista de eventos da Odds API."""
-    prefix = "ht_" if is_ht else ""
-    rows   = []
-    for event in events:
-        home = event.get("home_team", "")
-        away = event.get("away_team", "")
+def _parse(events: list, ht: bool = False) -> Dict[str, dict]:
+    """Extrai odds de uma lista de eventos → {home|away: {market: odd}}"""
+    prefix = "ht_" if ht else ""
+    result = {}
+    for ev in events:
+        home = ev.get("home_team", "")
+        away = ev.get("away_team", "")
+        key  = f"{home.lower()}|{away.lower()}"
         odds = {}
-        for bm in event.get("bookmakers", []):
+        for bm in ev.get("bookmakers", []):
             if bm["key"] != "bet365":
                 continue
             for mkt in bm.get("markets", []):
-                key = mkt.get("key", "")
+                mk = mkt.get("key", "")
                 for o in mkt.get("outcomes", []):
                     name  = o["name"].lower()
-                    price = o["price"]
+                    price = float(o["price"])
                     pt    = o.get("point")
-                    if key in ("h2h", "h2h_h1"):
+                    if mk in ("h2h", "h2h_h1"):
                         if "draw" in name:
                             odds[f"{prefix}draw"] = price
                         elif o["name"] == home:
                             odds[f"{prefix}home_win"] = price
                         else:
                             odds[f"{prefix}away_win"] = price
-                    elif key in ("totals", "totals_h1") and pt is not None:
+                    elif mk in ("totals", "totals_h1") and pt is not None:
                         sfx = str(pt).replace(".", "")
-                        if "over" in name:
-                            odds[f"{prefix}over_{sfx}"] = price
-                        else:
-                            odds[f"{prefix}under_{sfx}"] = price
-        rows.append({
-            "home_team":     home,
-            "away_team":     away,
-            "commence_time": event.get("commence_time", ""),
-            "odds":          odds,
-        })
-    return rows
+                        tag = "over" if "over" in name else "under"
+                        odds[f"{prefix}{tag}_{sfx}"] = price
+        if odds:
+            result.setdefault(key, {}).update(odds)
+            result[key]["home_team"]     = home
+            result[key]["away_team"]     = away
+            result[key]["commence_time"] = ev.get("commence_time", "")
+            result[key]["sport_key"]     = ev.get("sport_key", "")
+    return result
+
+
+def _infer_group(sport_key: str) -> str:
+    k = sport_key
+    if any(x in k for x in ["austria","belgium","denmark","finland","france_ligue_two",
+                              "germany_bundesliga2","germany_liga3","greece","italy_serie_b",
+                              "ireland","norway","poland","russia","scotland","spl",
+                              "spain_segunda","sweden","switzerland","turkey","efl","england"]):
+        return "minor_europe"
+    if any(x in k for x in ["australia","japan","korea","china","saudi"]):
+        return "minor_oceania"
+    if any(x in k for x in ["argentina","brazil_serie_b","chile","libertadores",
+                              "sudamericana","mexico","mls","concacaf"]):
+        return "minor_americas"
+    return "cups"
 
 
 def _default_profile(league_name: str) -> Dict:
@@ -152,93 +153,69 @@ def _default_profile(league_name: str) -> Dict:
 
 
 def run_minor_collection_pipeline() -> Dict:
-    """Pipeline de coleta para ligas menores via The Odds API."""
     logger.info("=== Minor Leagues Collection Pipeline ===")
 
     if not ODDS_KEY:
-        logger.warning("ODDS_API_KEY not set — cannot fetch minor league odds")
+        logger.warning("ODDS_API_KEY not set")
         return {"fixtures": pd.DataFrame(), "odds_map": {}, "league_profiles": {}}
 
-    all_fixtures   = []
-    odds_map       = {}
-    league_profiles = {}
+    all_events:    Dict[str, dict] = {}
+    league_profiles: Dict[str, dict] = {}
+    found = 0
 
-    for sport_key in MINOR_SPORT_KEYS:
-        logger.info(f"  Processing: {sport_key}")
+    for sk in MINOR_SPORT_KEYS:
+        base_params = {"apiKey": ODDS_KEY, "regions": "eu,uk,au",
+                       "markets": "h2h,totals", "bookmakers": "bet365",
+                       "dateFormat": "iso", "oddsFormat": "decimal"}
 
-        # FT odds
-        ft_events = fetch_minor_odds_by_sport(sport_key)
-        # HT odds
-        ht_events = fetch_minor_ht_odds(sport_key)
+        ft = _get(f"{BASE}/sports/{sk}/odds", base_params, label=sk)
+        if ft:
+            parsed = _parse(ft, ht=False)
+            for k, v in parsed.items():
+                all_events.setdefault(k, {}).update(v)
+            found += len(parsed)
+            logger.info(f"  ✅ {sk}: {len(parsed)} events")
 
-        # Parse HT odds
-        ht_map = {}
-        for row in _parse_events(ht_events, is_ht=True):
-            k = f"{row['home_team'].lower()}|{row['away_team'].lower()}"
-            ht_map[k] = row["odds"]
+            # Tenta HT odds (falha silenciosamente se não disponível)
+            ht_params = {**base_params, "markets": "h2h_h1,totals_h1",
+                         "regions": "eu,uk"}
+            ht = _get(f"{BASE}/sports/{sk}/odds", ht_params, label=f"{sk}/HT")
+            if ht:
+                ht_parsed = _parse(ht, ht=True)
+                for k, v in ht_parsed.items():
+                    all_events.setdefault(k, {}).update(v)
 
-        for row in _parse_events(ft_events, is_ht=False):
-            home = row["home_team"]
-            away = row["away_team"]
-            key  = f"{home.lower()}|{away.lower()}"
+        time.sleep(0.25)
 
-            # Combina FT + HT odds
-            combined_odds = {**row["odds"], **ht_map.get(key, {})}
-            odds_map[key] = combined_odds
+    # Monta DataFrame de fixtures
+    rows = []
+    for key, ev in all_events.items():
+        sk   = ev.get("sport_key", "")
+        name = sk.replace("soccer_","").replace("_"," ").title()
+        rows.append({
+            "fixture_id":  key,
+            "date":        ev.get("commence_time", ""),
+            "league_id":   sk,
+            "league_name": name,
+            "country":     name,
+            "home_team":   ev.get("home_team", ""),
+            "home_id":     0,
+            "away_team":   ev.get("away_team", ""),
+            "away_id":     0,
+            "venue": "", "referee": "", "status": "NS",
+            "minor_focus": True,
+            "group":       _infer_group(sk),
+            "timezone":    "UTC",
+            "source":      "odds-api",
+        })
+        if name not in league_profiles:
+            league_profiles[name] = _default_profile(name)
 
-            # Infere nome da liga pelo sport_key
-            league_name = sport_key.replace("soccer_", "").replace("_", " ").title()
-            country     = sport_key.split("_")[1].title() if "_" in sport_key else ""
+    # odds_map: chave = home|away, valor = {market: odd}
+    odds_map = {k: {mk: v for mk, v in ev.items()
+                    if mk not in ("home_team","away_team","commence_time","sport_key")}
+                for k, ev in all_events.items()}
 
-            all_fixtures.append({
-                "fixture_id":  f"{sport_key}_{key}",
-                "date":        row["commence_time"],
-                "league_id":   sport_key,
-                "league_name": league_name,
-                "country":     country,
-                "home_team":   home,
-                "home_id":     0,
-                "away_team":   away,
-                "away_id":     0,
-                "venue":       "",
-                "referee":     "",
-                "status":      "NS",
-                "minor_focus": True,
-                "group":       _infer_group(sport_key),
-                "timezone":    "UTC",
-                "source":      "odds-api",
-            })
-
-            # Perfil da liga (default — sem histórico no free tier)
-            if league_name not in league_profiles:
-                league_profiles[league_name] = _default_profile(league_name)
-
-        time.sleep(0.3)
-
-    fixtures = pd.DataFrame(all_fixtures) if all_fixtures else pd.DataFrame()
-    logger.info(f"Minor pipeline: {len(fixtures)} fixtures, {len(odds_map)} odds events, {len(league_profiles)} leagues")
-    return {
-        "fixtures":        fixtures,
-        "odds_map":        odds_map,
-        "league_profiles": league_profiles,
-    }
-
-
-def _infer_group(sport_key: str) -> str:
-    k = sport_key.lower()
-    if any(x in k for x in ["iceland","norway","sweden","finland","denmark","poland",
-                              "scotland","belgium","greece","switzerland","russia"]):
-        return "minor_europe"
-    if any(x in k for x in ["australia","japan","korea"]):
-        return "minor_oceania"
-    if any(x in k for x in ["argentina","chile","colombia","usa","canada","brazil"]):
-        return "minor_americas"
-    if any(x in k for x in ["saudi","israel","china","india","thailand","indonesia"]):
-        return "minor_asia"
-    if any(x in k for x in ["south_africa","egypt","morocco","nigeria","ghana"]):
-        return "minor_africa"
-    return "other"
-
-
-def get_all_minor_leagues():
-    return []
+    fixtures = pd.DataFrame(rows) if rows else pd.DataFrame()
+    logger.info(f"Minor pipeline: {len(fixtures)} fixtures, {len(league_profiles)} leagues, {found} events with odds")
+    return {"fixtures": fixtures, "odds_map": odds_map, "league_profiles": league_profiles}
