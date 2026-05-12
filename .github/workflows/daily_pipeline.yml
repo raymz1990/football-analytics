@@ -2,12 +2,14 @@ name: BetAnalytics Pro — Daily Pipeline
 
 on:
   schedule:
-    - cron: '0 12 * * *'   # 09:00 BRT
-    - cron: '0 17 * * *'   # 14:00 BRT
+    # Roda às 10:00 BRT (13:00 UTC) — odds da Bet365 já abertas para jogos do dia
+    - cron: '0 13 * * *'
+    # Segunda rodada às 16:00 BRT (19:00 UTC) — atualização antes dos jogos noturnos
+    - cron: '0 19 * * *'
   workflow_dispatch:
     inputs:
       skip_collect:
-        description: 'Skip data collection (use cache)'
+        description: 'Skip data collection'
         required: false
         default: 'false'
       only_dashboard:
@@ -47,9 +49,9 @@ jobs:
           path: |
             data/historical
             data/models_cache
-          key: betanalytics-historical-${{ runner.os }}-${{ github.run_number }}
+          key: betanalytics-${{ runner.os }}-${{ github.run_number }}
           restore-keys: |
-            betanalytics-historical-${{ runner.os }}-
+            betanalytics-${{ runner.os }}-
 
       - name: Run BetAnalytics pipeline
         env:
@@ -58,41 +60,37 @@ jobs:
           ODDS_API_KEY: ${{ secrets.ODDS_API_KEY }}
           OPENWEATHER_KEY: ${{ secrets.OPENWEATHER_KEY }}
         run: |
-          set -e
           ARGS=""
-          if [ "${{ github.event.inputs.skip_collect }}" = "true" ]; then
-            ARGS="$ARGS --skip-collect"
-          fi
-          if [ "${{ github.event.inputs.only_dashboard }}" = "true" ]; then
-            ARGS="$ARGS --only-dashboard"
-          fi
+          [ "${{ github.event.inputs.skip_collect }}" = "true" ] && ARGS="$ARGS --skip-collect"
+          [ "${{ github.event.inputs.only_dashboard }}" = "true" ] && ARGS="$ARGS --only-dashboard"
           echo "=== Running pipeline ==="
           python main.py $ARGS
           echo "=== Pipeline complete ==="
-          echo "=== docs/ contents ==="
+          echo "=== docs/ ==="
           ls -lh docs/
-          echo "=== data.json preview ==="
+          echo "=== data.json summary ==="
           python -c "
           import json
-          with open('docs/data.json') as f:
-              d = json.load(f)
-          print('total_fixtures:', d.get('total_fixtures'))
-          print('total_value_bets:', d.get('total_value_bets'))
-          print('date:', d.get('date'))
-          minor = d.get('minor', {})
-          print('minor_fixtures:', minor.get('minor_fixtures'))
-          print('minor_value_bets:', len(minor.get('minor_value_bets', [])))
+          d = json.load(open('docs/data.json'))
+          m = d.get('minor', {})
+          print(f'Fixtures:       {d.get(\"total_fixtures\", 0)}')
+          print(f'Value Bets:     {d.get(\"total_value_bets\", 0)}')
+          print(f'Date:           {d.get(\"date\")}')
+          print(f'Minor Fixtures: {m.get(\"minor_fixtures\", 0)}')
+          print(f'Minor VBets:    {len(m.get(\"minor_value_bets\", []))}')
+          odds_d = json.load(open('docs/data.json'))
+          print(f'Has odds:       {odds_d.get(\"total_fixtures\",0) > 0}')
           "
 
-      - name: Commit historical data updates
+      - name: Commit and push updates
         run: |
           git config --local user.email "action@github.com"
           git config --local user.name "BetAnalytics Bot"
-          git add data/historical/ data/models_cache/ docs/ || true
-          git diff --staged --quiet || git commit -m "chore: daily update $(date -u '+%Y-%m-%d %H:%M UTC')"
+          git add docs/ data/historical/ data/models_cache/ || true
+          git diff --staged --quiet || git commit -m "chore: update $(date -u '+%Y-%m-%d %H:%M UTC')"
           git push || echo "Nothing to push"
 
-      - name: Upload dashboard artifact
+      - name: Upload Pages artifact
         uses: actions/upload-pages-artifact@v3
         with:
           path: docs/
@@ -103,7 +101,6 @@ jobs:
     environment:
       name: github-pages
       url: ${{ steps.deployment.outputs.page_url }}
-
     steps:
       - name: Deploy to GitHub Pages
         id: deployment

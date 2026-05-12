@@ -142,10 +142,11 @@ AF_LEAGUE_IDS = [
 ]
 
 def _test_api_football() -> bool:
-    """Testa se a chave do API-Football funciona."""
-    data = _get(f"{BASE_AF}/status", HEADERS_AF, label="AF/status")
-    ok = data.get("response", {}).get("account") is not None or "response" in data
-    logger.info(f"[API-Football] Key test: {'OK ✅' if ok else 'FAILED ❌'} — response keys: {list(data.keys())[:5]}")
+    """Testa se a chave do API-Football funciona usando endpoint /timezone (mais leve)."""
+    data = _get(f"{BASE_AF}/timezone", HEADERS_AF, label="AF/status", retries=1)
+    # Plano free retorna lista de timezones — qualquer resposta válida = chave OK
+    ok = isinstance(data.get("response"), list) and len(data.get("response", [])) > 0
+    logger.info(f"[API-Football] Key test: {'OK ✅' if ok else 'FAILED ❌'} — response: {str(data)[:80]}")
     return ok
 
 
