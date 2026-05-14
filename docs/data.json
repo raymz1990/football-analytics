@@ -1,43 +1,11 @@
 {
-  "generated_at": "2026-05-14T15:19:34.195832",
+  "generated_at": "2026-05-14T20:28:36.435355",
   "date": "2026-05-14",
-  "total_fixtures": 3,
+  "total_fixtures": 1,
   "total_value_bets": 0,
   "hot_bets": [],
   "all_value_bets": [],
   "fixtures_list": [
-    {
-      "fixture_id": 544568,
-      "date": "2026-05-14T17:00:00Z",
-      "league_id": "PD",
-      "league_name": "La Liga",
-      "country": "Spain",
-      "home_team": "Valencia",
-      "home_id": 95,
-      "away_team": "Rayo Vallecano",
-      "away_id": 87,
-      "venue": "",
-      "referee": "",
-      "status": "TIMED",
-      "minor_focus": false,
-      "source": "football-data.org"
-    },
-    {
-      "fixture_id": 544565,
-      "date": "2026-05-14T18:00:00Z",
-      "league_id": "PD",
-      "league_name": "La Liga",
-      "country": "Spain",
-      "home_team": "Girona",
-      "home_id": 298,
-      "away_team": "Real Sociedad",
-      "away_id": 92,
-      "venue": "",
-      "referee": "",
-      "status": "TIMED",
-      "minor_focus": false,
-      "source": "football-data.org"
-    },
     {
       "fixture_id": 544570,
       "date": "2026-05-14T19:30:00Z",
@@ -50,7 +18,7 @@
       "away_id": 1048,
       "venue": "",
       "referee": "",
-      "status": "TIMED",
+      "status": "PAUSED",
       "minor_focus": false,
       "source": "football-data.org"
     }
