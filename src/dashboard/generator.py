@@ -314,6 +314,9 @@ function nav(btn, sectionId) {{
 //  HELPERS
 // ══════════════════════════════════════════════════════════
 const TC = {{Elite:'elite',Forte:'forte',Moderada:'moderada'}};
+const estBadge = b => b.is_estimated||b.odds_source==='poisson_estimate'
+  ? '<span style="background:rgba(245,200,66,.15);color:var(--gold);font-family:var(--mono);font-size:9px;padding:2px 6px;border-radius:3px;border:1px solid rgba(245,200,66,.3)">⚠️ Odds Est.</span>'
+  : '<span style="background:rgba(0,229,160,.1);color:var(--accent);font-family:var(--mono);font-size:9px;padding:2px 6px;border-radius:3px;border:1px solid rgba(0,229,160,.3)">✅ Bet365 Real</span>';
 const p2 = v => (+v||0).toFixed(2);
 const p1 = v => (+v||0).toFixed(1);
 const pct = v => (+(v||0)*100).toFixed(1)+'%';
@@ -325,7 +328,7 @@ function betCard(b) {{
     `<div style="width:5px;height:5px;border-radius:50%;background:${{i<(b.convergence||0)?'var(--accent)':'var(--border2)'}}"></div>`
   ).join('');
   return `
-  <div class="bc ${{t}}">
+  <div class="bc ${{t}}" title="${{b.odds_source||""}}">
     <div class="bh">
       <div>
         <div class="bm-name">${{b.home_team||'?'}} vs ${{b.away_team||'?'}}</div>
